@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cornhole Tournament</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f4f4f2; color: #1a1a18; min-height: 100vh; }
+    header { background: #1e3a1e; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 1.5rem; }
+    nav a:hover { color: white; }
+    .page { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+    h2 { font-size: 20px; font-weight: 700; color: #1e3a1e; margin-bottom: 1.25rem; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    input { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
+    input:focus { border-color: #2d6a2d; box-shadow: 0 0 0 3px rgba(45,106,45,0.12); }
+    .form-row { margin-bottom: 1rem; }
+    .btn { display: inline-block; padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+    .btn-primary { background: #2d6a2d; color: white; }
+    .btn-primary:hover { background: #1e4d1e; }
+    .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+    .msg.success { color: #2d6a2d; }
+    .msg.error { color: #c0392b; }
+    .team-list { display: flex; flex-direction: column; gap: 8px; }
+    .team-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid #eee; border-radius: 8px; }
+    .team-name { font-weight: 600; font-size: 14px; }
+    .team-players { font-size: 12px; color: #888; margin-top: 2px; }
+    .team-num { font-size: 12px; color: #aaa; margin-left: 8px; }
+    .badge { display: inline-block; background: #e8f5e8; color: #2d6a2d; border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
+    .closed-banner { background: #fff3cd; border: 1px solid #f0ad4e; border-radius: 8px; padding: 12px 16px; font-size: 14px; color: #856404; margin-bottom: 1.25rem; }
+    .empty { color: #aaa; font-size: 14px; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 Cornhole Tournament</h1>
+    <nav>
+      <a href="/">Register</a>
+      <a href="/bracket.html">Bracket</a>
+    </nav>
+  </header>
+
+  <div class="page">
+    <div class="grid">
+      <!-- Registration -->
+      <div>
+        <div class="card">
+          <h2>Register Your Team</h2>
+          <div id="closedBanner" class="closed-banner" style="display:none">
+            Registration is closed — the tournament bracket has been created.
+          </div>
+          <div id="regForm">
+            <div class="form-row">
+              <label>Team Name</label>
+              <input id="teamName" type="text" placeholder="e.g. Bag Brothers" maxlength="60" />
+            </div>
+            <div class="form-row">
+              <label>Player 1</label>
+              <input id="player1" type="text" placeholder="First & last name" maxlength="60" />
+            </div>
+            <div class="form-row">
+              <label>Player 2</label>
+              <input id="player2" type="text" placeholder="First & last name" maxlength="60" />
+            </div>
+            <button class="btn btn-primary" id="registerBtn" onclick="register()">Register Team</button>
+            <div class="msg" id="regMsg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teams List -->
+      <div>
+        <div class="card">
+          <h2>Registered Teams</h2>
+          <div id="teamCount" class="badge">Loading...</div>
+          <div id="teamList" class="team-list">
+            <div class="empty">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadTeams() {
+      const res = await fetch('/api/teams')
+      const teams = await res.json()
+
+      document.getElementById('teamCount').textContent = `${teams.length} team${teams.length !== 1 ? 's' : ''} registered`
+
+      const list = document.getElementById('teamList')
+      if (!teams.length) {
+        list.innerHTML = '<div class="empty">No teams registered yet. Be the first!</div>'
+        return
+      }
+      list.innerHTML = teams.map((t, i) => `
+        <div class="team-item">
+          <div>
+            <div class="team-name">${esc(t.name)}</div>
+            <div class="team-players">${esc(t.player1)} &amp; ${esc(t.player2)}</div>
+          </div>
+          <span class="team-num">#${i + 1}</span>
+        </div>
+      `).join('')
+    }
+
+    async function checkStatus() {
+      const res = await fetch('/api/teams')
+      // We check via a test POST — simpler: just check bracket_created via teams endpoint
+      // We'll detect closed state when registration fails
+    }
+
+    async function register() {
+      const btn = document.getElementById('registerBtn')
+      const msg = document.getElementById('regMsg')
+      const name = document.getElementById('teamName').value.trim()
+      const p1 = document.getElementById('player1').value.trim()
+      const p2 = document.getElementById('player2').value.trim()
+
+      if (!name || !p1 || !p2) {
+        msg.className = 'msg error'; msg.textContent = 'Please fill in all fields.'; return
+      }
+
+      btn.disabled = true; msg.textContent = ''
+
+      const res = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, player1: p1, player2: p2 })
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        msg.className = 'msg error'
+        msg.textContent = data.error
+        if (data.error.includes('closed')) {
+          document.getElementById('closedBanner').style.display = 'block'
+          document.getElementById('regForm').style.display = 'none'
+        }
+      } else {
+        msg.className = 'msg success'
+        msg.textContent = `✓ "${data.name}" registered!`
+        document.getElementById('teamName').value = ''
+        document.getElementById('player1').value = ''
+        document.getElementById('player2').value = ''
+        loadTeams()
+      }
+      btn.disabled = false
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    }
+
+    loadTeams()
+    setInterval(loadTeams, 15000)
+  </script>
+</body>
+</html>

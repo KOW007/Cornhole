@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bracket — Cornhole Tournament</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f4f4f2; color: #1a1a18; }
+    header { background: #1e3a1e; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 1.5rem; }
+    nav a:hover { color: white; }
+
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #ddd; background: white; padding: 0 2rem; }
+    .tab { padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .tab.active { color: #1e3a1e; border-bottom-color: #2d6a2d; }
+
+    .bracket-panel { display: none; overflow-x: auto; padding: 1.5rem; }
+    .bracket-panel.active { display: block; }
+
+    /* Bracket layout */
+    .bracket-rounds { display: flex; gap: 0; align-items: flex-start; }
+    .round-col { display: flex; flex-direction: column; min-width: 180px; }
+    .round-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #888; text-align: center; padding: 8px 4px; background: white; border-bottom: 1px solid #eee; position: sticky; top: 0; }
+
+    .match-wrapper { display: flex; align-items: center; }
+    .match-card {
+      background: white; border: 1px solid #e0e0e0; border-radius: 8px;
+      margin: 6px 4px; flex: 1; overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .match-team {
+      padding: 6px 10px; font-size: 12px; display: flex;
+      justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #f0f0f0; min-height: 34px;
+    }
+    .match-team:last-child { border-bottom: none; }
+    .match-team.winner { background: #f0f8f0; font-weight: 700; color: #1e3a1e; }
+    .match-team.bye { color: #bbb; font-style: italic; }
+    .team-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .team-score { font-weight: 700; margin-left: 8px; min-width: 20px; text-align: right; }
+    .match-id { font-size: 9px; color: #ccc; padding: 2px 10px; background: #fafafa; }
+
+    /* Connector lines */
+    .connector { width: 20px; display: flex; flex-direction: column; align-items: flex-start; }
+    .connector-line { width: 20px; height: 1px; background: #ccc; }
+
+    .gf-wrapper { padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .gf-card { background: white; border: 2px solid #2d6a2d; border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; box-shadow: 0 2px 8px rgba(45,106,45,0.15); }
+    .gf-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #2d6a2d; margin-bottom: 1rem; }
+    .gf-team { padding: 10px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; font-weight: 600; background: #f4f4f2; display: flex; justify-content: space-between; }
+    .gf-team.winner { background: #e8f5e8; color: #1e3a1e; }
+    .champion { background: #fff8e1; border: 2px solid #f0c040; border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; }
+    .champion-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #b8860b; }
+    .champion-name { font-size: 22px; font-weight: 800; color: #1a1a18; margin-top: 8px; }
+
+    .empty-bracket { text-align: center; padding: 4rem; color: #aaa; font-size: 15px; }
+    .refresh-note { font-size: 12px; color: #aaa; text-align: right; padding: 0.5rem 1.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 Cornhole Tournament</h1>
+    <nav>
+      <a href="/">Register</a>
+      <a href="/bracket.html">Bracket</a>
+    </nav>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('winners')">Winners Bracket</div>
+    <div class="tab" onclick="showTab('losers')">Consolation Bracket</div>
+    <div class="tab" onclick="showTab('gf')">Grand Final</div>
+  </div>
+  <div class="refresh-note" id="refreshNote">Auto-refreshes every 30s</div>
+
+  <div id="tab-winners" class="bracket-panel active">
+    <div id="winnersBracket"></div>
+  </div>
+  <div id="tab-losers" class="bracket-panel">
+    <div id="losersBracket"></div>
+  </div>
+  <div id="tab-gf" class="bracket-panel">
+    <div id="gfSection"></div>
+  </div>
+
+  <script>
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['winners','losers','gf'][i] === name)
+      })
+      document.querySelectorAll('.bracket-panel').forEach(p => p.classList.remove('active'))
+      document.getElementById('tab-' + name).classList.add('active')
+    }
+
+    function esc(s) {
+      if (!s) return '—'
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    }
+
+    function teamName(t) { return t ? esc(t.name) : '<span style="color:#ccc">TBD</span>' }
+
+    function renderMatch(m) {
+      const t1win = m.winner_id && m.team1 && m.winner_id === m.team1.id
+      const t2win = m.winner_id && m.team2 && m.winner_id === m.team2.id
+      const t1bye = !m.team1 && m.is_bye
+      const t2bye = !m.team2 && m.is_bye
+      return `
+        <div class="match-card">
+          <div class="match-team ${t1win ? 'winner' : ''} ${t1bye ? 'bye' : ''}">
+            <span class="team-label">${m.team1 ? esc(m.team1.name) : (m.is_bye ? 'BYE' : '<span style=color:#ccc>TBD</span>')}</span>
+            <span class="team-score">${m.score1 != null ? m.score1 : ''}</span>
+          </div>
+          <div class="match-team ${t2win ? 'winner' : ''} ${t2bye ? 'bye' : ''}">
+            <span class="team-label">${m.team2 ? esc(m.team2.name) : (m.is_bye ? 'BYE' : '<span style=color:#ccc>TBD</span>')}</span>
+            <span class="team-score">${m.score2 != null ? m.score2 : ''}</span>
+          </div>
+        </div>`
+    }
+
+    function renderBracket(matches, bracket, roundLabels) {
+      const rounds = {}
+      matches.filter(m => m.bracket === bracket).forEach(m => {
+        if (!rounds[m.round]) rounds[m.round] = []
+        rounds[m.round].push(m)
+      })
+      const roundNums = Object.keys(rounds).map(Number).sort((a,b) => a-b)
+      if (!roundNums.length) return '<div class="empty-bracket">Bracket not created yet.</div>'
+
+      return `<div class="bracket-rounds">` + roundNums.map(r => {
+        const label = roundLabels?.[r] || `Round ${r}`
+        const ms = rounds[r].sort((a,b) => a.position - b.position)
+        return `
+          <div class="round-col">
+            <div class="round-label">${label}</div>
+            ${ms.map(m => `<div class="match-wrapper">${renderMatch(m)}</div>`).join('')}
+          </div>`
+      }).join('') + '</div>'
+    }
+
+    function renderGF(matches) {
+      const gf = matches.find(m => m.bracket === 'G')
+      if (!gf) return '<div class="empty-bracket">Grand Final not yet reached.</div>'
+
+      const champion = gf.winner ? gf.winner : null
+      const t1win = gf.winner_id && gf.team1 && gf.winner_id === gf.team1.id
+      const t2win = gf.winner_id && gf.team2 && gf.winner_id === gf.team2.id
+
+      return `<div class="gf-wrapper">
+        <div class="gf-card">
+          <div class="gf-title">🏆 Grand Final</div>
+          <div class="gf-team ${t1win ? 'winner' : ''}">
+            <span>${gf.team1 ? esc(gf.team1.name) : 'Winners Bracket Champion'}</span>
+            <span>${gf.score1 != null ? gf.score1 : ''}</span>
+          </div>
+          <div style="font-size:11px;color:#aaa;text-align:center;margin:4px 0">vs</div>
+          <div class="gf-team ${t2win ? 'winner' : ''}">
+            <span>${gf.team2 ? esc(gf.team2.name) : 'Consolation Bracket Champion'}</span>
+            <span>${gf.score2 != null ? gf.score2 : ''}</span>
+          </div>
+        </div>
+        ${champion ? `<div class="champion">
+          <div class="champion-label">🥇 Tournament Champion</div>
+          <div class="champion-name">${esc(champion.name)}</div>
+        </div>` : ''}
+      </div>`
+    }
+
+    const WB_LABELS = { 1:'Round 1', 2:'Round 2', 3:'Round 3', 4:'Quarterfinals', 5:'Semifinals', 6:'WB Final' }
+    const LB_LABELS = { 1:'LB R1', 2:'LB R2', 3:'LB R3', 4:'LB R4', 5:'LB R5', 6:'LB R6', 7:'LB R7', 8:'LB R8', 9:'LB Semis', 10:'LB Final' }
+
+    async function load() {
+      const res = await fetch('/api/matches')
+      if (!res.ok) return
+      const matches = await res.json()
+      document.getElementById('winnersBracket').innerHTML = renderBracket(matches, 'W', WB_LABELS)
+      document.getElementById('losersBracket').innerHTML = renderBracket(matches, 'L', LB_LABELS)
+      document.getElementById('gfSection').innerHTML = renderGF(matches)
+      document.getElementById('refreshNote').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
+    }
+
+    load()
+    setInterval(load, 30000)
+  </script>
+</body>
+</html>

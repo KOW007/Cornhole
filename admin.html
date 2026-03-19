@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Cornhole Tournament</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f4f4f2; color: #1a1a18; }
+    header { background: #1e3a1e; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 1.5rem; }
+
+    /* Login */
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 60px); }
+    .login-card { background: white; border-radius: 12px; padding: 2rem; width: 340px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    .login-card h2 { font-size: 18px; margin-bottom: 1.25rem; }
+
+    /* Layout */
+    .page { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+    .tab { padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; background: white; border: 1px solid #ddd; color: #555; }
+    .tab.active { background: #1e3a1e; color: white; border-color: #1e3a1e; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Form elements */
+    .card { background: white; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    input, select { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; background: white; }
+    input:focus, select:focus { border-color: #2d6a2d; box-shadow: 0 0 0 3px rgba(45,106,45,0.12); }
+    .form-row { margin-bottom: 1rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .btn { display: inline-block; padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+    .btn-primary { background: #2d6a2d; color: white; }
+    .btn-primary:hover { background: #1e4d1e; }
+    .btn-danger { background: #c0392b; color: white; font-size: 12px; padding: 5px 12px; }
+    .btn-danger:hover { background: #a93226; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+    .msg.success { color: #2d6a2d; }
+    .msg.error { color: #c0392b; }
+
+    /* Teams table */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #eee; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Score entry */
+    .match-select-card { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; }
+    .score-inputs { display: flex; align-items: center; gap: 12px; margin-top: 1rem; }
+    .score-team { flex: 1; }
+    .score-vs { color: #aaa; font-weight: 700; font-size: 18px; }
+    .score-input { text-align: center; font-size: 20px; font-weight: 700; padding: 12px; }
+
+    /* Danger zone */
+    .danger-zone { border: 1px solid #f5c6cb; border-radius: 8px; padding: 1rem 1.25rem; background: #fff5f5; }
+    .danger-zone p { font-size: 13px; color: #721c24; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 Cornhole Admin</h1>
+    <nav>
+      <a href="/">Public Site</a>
+      <a href="/bracket.html">Bracket</a>
+    </nav>
+  </header>
+
+  <!-- Login screen -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <h2>Admin Login</h2>
+      <div class="form-row">
+        <label>Password</label>
+        <input type="password" id="pwInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')login()" />
+      </div>
+      <button class="btn btn-primary" onclick="login()">Login</button>
+      <div class="msg error" id="loginMsg"></div>
+    </div>
+  </div>
+
+  <!-- Admin panel -->
+  <div class="page" id="adminPanel" style="display:none">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('teams')">Teams</div>
+      <div class="tab" onclick="showTab('bracket')">Create Bracket</div>
+      <div class="tab" onclick="showTab('scores')">Enter Scores</div>
+    </div>
+
+    <!-- Teams panel -->
+    <div class="panel active" id="panel-teams">
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:1rem">Registered Teams</h2>
+        <div id="teamsTable">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Bracket panel -->
+    <div class="panel" id="panel-bracket">
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:.5rem">Create Tournament Bracket</h2>
+        <p style="font-size:13px;color:#888;margin-bottom:1.25rem">
+          This randomly seeds all registered teams into a 64-team double elimination bracket. Byes are added automatically for empty slots. <strong>This action cannot be undone</strong> — registration will close.
+        </p>
+        <button class="btn btn-primary" id="createBtn" onclick="createBracket()">Create Bracket</button>
+        <div class="msg" id="bracketMsg"></div>
+      </div>
+      <div class="card danger-zone">
+        <p><strong>Reset tournament:</strong> Deletes all matches and reopens registration. Use only if starting over.</p>
+        <button class="btn btn-danger" onclick="resetBracket()">Reset Bracket & Reopen Registration</button>
+        <div class="msg" id="resetMsg"></div>
+      </div>
+    </div>
+
+    <!-- Scores panel -->
+    <div class="panel" id="panel-scores">
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:1rem">Enter Match Score</h2>
+        <div class="form-row">
+          <label>Select Match</label>
+          <select id="matchSelect" onchange="selectMatch()">
+            <option value="">— Choose a match —</option>
+          </select>
+        </div>
+        <div id="scoreForm" style="display:none">
+          <div class="score-inputs">
+            <div class="score-team">
+              <label id="team1Label">Team 1</label>
+              <input type="number" class="score-input" id="score1" min="0" placeholder="0" />
+            </div>
+            <div class="score-vs">vs</div>
+            <div class="score-team">
+              <label id="team2Label">Team 2</label>
+              <input type="number" class="score-input" id="score2" min="0" placeholder="0" />
+            </div>
+          </div>
+          <div style="margin-top:1rem">
+            <button class="btn btn-primary" onclick="submitScore()">Save Score</button>
+          </div>
+          <div class="msg" id="scoreMsg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:1rem">Ready to Play</h2>
+        <div id="readyMatches">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminPw = ''
+    let allMatches = []
+
+    function esc(s) { return !s ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    async function login() {
+      const pw = document.getElementById('pwInput').value
+      const res = await fetch('/api/matches', { headers: { 'x-admin-password': pw } })
+      if (res.status === 401) {
+        document.getElementById('loginMsg').textContent = 'Incorrect password.'
+        return
+      }
+      adminPw = pw
+      document.getElementById('loginWrap').style.display = 'none'
+      document.getElementById('adminPanel').style.display = 'block'
+      loadAll()
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['teams','bracket','scores'][i] === name)
+      })
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+      document.getElementById('panel-' + name).classList.add('active')
+      if (name === 'scores') loadMatches()
+    }
+
+    async function loadAll() {
+      loadTeams()
+      loadMatches()
+    }
+
+    async function loadTeams() {
+      const res = await fetch('/api/teams')
+      const teams = await res.json()
+      const div = document.getElementById('teamsTable')
+      if (!teams.length) { div.innerHTML = '<p style="color:#aaa;font-size:14px">No teams registered.</p>'; return }
+      div.innerHTML = `<table>
+        <thead><tr><th>#</th><th>Team</th><th>Player 1</th><th>Player 2</th><th>Registered</th><th></th></tr></thead>
+        <tbody>${teams.map((t, i) => `
+          <tr>
+            <td>${i+1}</td>
+            <td><strong>${esc(t.name)}</strong></td>
+            <td>${esc(t.player1)}</td>
+            <td>${esc(t.player2)}</td>
+            <td>${new Date(t.registered_at).toLocaleDateString()}</td>
+            <td><button class="btn btn-danger" onclick="deleteTeam('${t.id}','${esc(t.name)}')">Remove</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`
+    }
+
+    async function deleteTeam(id, name) {
+      if (!confirm(`Remove team "${name}"?`)) return
+      const res = await fetch(`/api/teams?id=${id}`, {
+        method: 'DELETE', headers: { 'x-admin-password': adminPw }
+      })
+      if (res.ok) loadTeams()
+      else { const d = await res.json(); alert(d.error) }
+    }
+
+    async function createBracket() {
+      if (!confirm('Create the bracket? This will close registration and cannot be undone.')) return
+      const btn = document.getElementById('createBtn')
+      const msg = document.getElementById('bracketMsg')
+      btn.disabled = true; msg.textContent = ''
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error }
+      else { msg.className = 'msg success'; msg.textContent = `✓ Bracket created with ${data.matchCount} matches!` }
+      btn.disabled = false
+      loadMatches()
+    }
+
+    async function resetBracket() {
+      if (!confirm('Reset the bracket and reopen registration? All match data will be lost.')) return
+      const msg = document.getElementById('resetMsg')
+      // Delete all matches and reset setting
+      const res = await fetch('/api/matches?action=reset', {
+        method: 'DELETE',
+        headers: { 'x-admin-password': adminPw }
+      })
+      if (res.ok) { msg.className = 'msg success'; msg.textContent = '✓ Reset complete.' }
+      else { const d = await res.json(); msg.className = 'msg error'; msg.textContent = d.error }
+    }
+
+    async function loadMatches() {
+      const res = await fetch('/api/matches')
+      if (!res.ok) return
+      allMatches = await res.json()
+      populateMatchSelect()
+      renderReadyMatches()
+    }
+
+    function matchLabel(m) {
+      const bracket = m.bracket === 'W' ? 'WB' : m.bracket === 'L' ? 'LB' : 'GF'
+      const t1 = m.team1?.name || 'TBD'
+      const t2 = m.team2?.name || 'TBD'
+      return `${bracket} R${m.round} #${m.position+1}: ${t1} vs ${t2}`
+    }
+
+    function populateMatchSelect() {
+      const sel = document.getElementById('matchSelect')
+      const ready = allMatches.filter(m => m.team1_id && m.team2_id && m.status !== 'complete' && !m.is_bye)
+      sel.innerHTML = '<option value="">— Choose a match —</option>' +
+        ready.map(m => `<option value="${m.id}">${matchLabel(m)}</option>`).join('')
+    }
+
+    function selectMatch() {
+      const id = parseInt(document.getElementById('matchSelect').value)
+      const form = document.getElementById('scoreForm')
+      const msg = document.getElementById('scoreMsg')
+      msg.textContent = ''
+      if (!id) { form.style.display = 'none'; return }
+      const m = allMatches.find(x => x.id === id)
+      if (!m) { form.style.display = 'none'; return }
+      document.getElementById('team1Label').textContent = m.team1?.name || 'Team 1'
+      document.getElementById('team2Label').textContent = m.team2?.name || 'Team 2'
+      document.getElementById('score1').value = ''
+      document.getElementById('score2').value = ''
+      form.style.display = 'block'
+    }
+
+    async function submitScore() {
+      const match_id = parseInt(document.getElementById('matchSelect').value)
+      const score1 = parseInt(document.getElementById('score1').value)
+      const score2 = parseInt(document.getElementById('score2').value)
+      const msg = document.getElementById('scoreMsg')
+      if (!match_id) { msg.className='msg error'; msg.textContent='Select a match.'; return }
+      if (isNaN(score1) || isNaN(score2)) { msg.className='msg error'; msg.textContent='Enter both scores.'; return }
+      if (score1 === score2) { msg.className='msg error'; msg.textContent='Scores cannot be tied.'; return }
+      const res = await fetch('/api/matches', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify({ match_id, score1, score2 })
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className='msg error'; msg.textContent=data.error }
+      else {
+        msg.className='msg success'; msg.textContent='✓ Score saved!'
+        document.getElementById('scoreForm').style.display = 'none'
+        document.getElementById('matchSelect').value = ''
+        loadMatches()
+      }
+    }
+
+    function renderReadyMatches() {
+      const div = document.getElementById('readyMatches')
+      const ready = allMatches.filter(m => m.team1_id && m.team2_id && m.status !== 'complete' && !m.is_bye)
+      if (!ready.length) { div.innerHTML = '<p style="color:#aaa;font-size:14px">No matches ready yet.</p>'; return }
+      div.innerHTML = `<table>
+        <thead><tr><th>Match</th><th>Team 1</th><th>Team 2</th><th>Status</th></tr></thead>
+        <tbody>${ready.map(m => `
+          <tr>
+            <td style="font-weight:600">${m.bracket === 'W' ? 'WB' : m.bracket === 'L' ? 'LB' : 'GF'} R${m.round} #${m.position+1}</td>
+            <td>${esc(m.team1?.name)}</td>
+            <td>${esc(m.team2?.name)}</td>
+            <td><span style="color:#2d6a2d;font-size:12px;font-weight:600">Ready</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`
+    }
+  </script>
+</body>
+</html>
