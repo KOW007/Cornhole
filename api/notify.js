@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
 
   const { data: teams, error } = await supabase
-    .from('ct_teams').select('name, phone, partner_status')
+    .from('ct_teams').select('id, name, phone, partner_status')
   if (error) return res.status(500).json({ error: error.message })
 
   const venmoLink = 'https://venmo.com/katherine-wallin-1?txn=pay&amount=40&note=SAS%20Cornhole%20Tournament%202026'
@@ -30,9 +30,13 @@ module.exports = async function handler(req, res) {
   const auth = Buffer.from(`${sid}:${token}`).toString('base64')
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`
 
-  const results = { sent: 0, failed: 0, skipped: 0 }
+  const results = { sent: 0, failed: 0, skipped: 0, sentList: [], failedList: [] }
 
-  for (const team of teams) {
+  // If a specific team_id is provided, only text that team
+  const targetId = req.body?.team_id || null
+  const targetTeams = targetId ? teams.filter(t => t.id === targetId) : teams
+
+  for (const team of targetTeams) {
     if (!team.phone) { results.skipped++; continue }
 
     let phone = team.phone.replace(/\D/g, '')
@@ -48,10 +52,10 @@ module.exports = async function handler(req, res) {
         },
         body: new URLSearchParams({ From: from, To: phone, Body: message })
       })
-      if (r.ok) results.sent++
-      else results.failed++
+      if (r.ok) { results.sent++; results.sentList.push({ name: team.name, phone: team.phone }) }
+      else { results.failed++; results.failedList.push({ name: team.name, phone: team.phone }) }
     } catch (e) {
-      results.failed++
+      results.failed++; results.failedList.push({ name: team.name, phone: team.phone })
     }
   }
 

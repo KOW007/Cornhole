@@ -7,7 +7,7 @@ const supabase = createClient(
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
@@ -63,6 +63,20 @@ module.exports = async function handler(req, res) {
     const { error } = await supabase.from('ct_teams')
       .update({ player2: player2.trim(), partner_status: 'has_partner' })
       .eq('id', team_id)
+    if (error) return res.status(500).json({ error: error.message })
+    return res.json({ success: true })
+  }
+
+  if (req.method === 'PATCH') {
+    if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD)
+      return res.status(401).json({ error: 'Unauthorized' })
+    const { id } = req.query
+    const { paid1, paid2 } = req.body
+    if (!id) return res.status(400).json({ error: 'Team ID required' })
+    const update = {}
+    if (paid1 !== undefined) update.paid1 = paid1
+    if (paid2 !== undefined) update.paid2 = paid2
+    const { error } = await supabase.from('ct_teams').update(update).eq('id', id)
     if (error) return res.status(500).json({ error: error.message })
     return res.json({ success: true })
   }
