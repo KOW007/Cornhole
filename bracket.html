@@ -25,10 +25,10 @@
     .round-col { display: flex; flex-direction: column; min-width: 180px; }
     .round-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #888; text-align: center; padding: 8px 4px; background: white; border-bottom: 1px solid #eee; position: sticky; top: 0; }
 
-    .match-wrapper { display: flex; align-items: center; }
+    .match-wrapper { display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
     .match-card {
       background: white; border: 1px solid #e0e0e0; border-radius: 8px;
-      margin: 6px 4px; flex: 1; overflow: hidden;
+      margin: 0 4px; flex: 1; overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .match-team {
@@ -129,13 +129,16 @@
       const roundNums = Object.keys(rounds).map(Number).sort((a,b) => a-b)
       if (!roundNums.length) return '<div class="empty-bracket">Bracket not created yet.</div>'
 
+      const BASE_HEIGHT = 80 // px per match slot in round 1
+
       return `<div class="bracket-rounds">` + roundNums.map(r => {
         const label = roundLabels?.[r] || `Round ${r}`
         const ms = rounds[r].sort((a,b) => a.position - b.position)
+        const wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
         return `
           <div class="round-col">
             <div class="round-label">${label}</div>
-            ${ms.map(m => `<div class="match-wrapper">${renderMatch(m)}</div>`).join('')}
+            ${ms.map(m => `<div class="match-wrapper" style="height:${wrapperHeight}px">${renderMatch(m)}</div>`).join('')}
           </div>`
       }).join('') + '</div>'
     }

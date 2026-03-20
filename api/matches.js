@@ -109,20 +109,27 @@ function buildMatchStructure(bracketSize) {
 }
 
 function assignTeams(matches, teams, bracketSize) {
-  // Pad to bracketSize with nulls (byes)
-  const slots = [...teams]
-  while (slots.length < bracketSize) slots.push(null)
-
-  // Shuffle
-  for (let i = slots.length - 1; i > 0; i--) {
+  // Shuffle real teams
+  const shuffled = [...teams]
+  for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [slots[i], slots[j]] = [slots[j], slots[i]]
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
+
+  // Interleave to avoid double byes:
+  // First half of slots = one side of R1, second half = other side
+  // Byes (nulls) go at the end of each half, spreading them across different matches
+  const half = bracketSize / 2
+  const slots = new Array(bracketSize).fill(null)
+  shuffled.forEach((team, i) => {
+    if (i < half) slots[i] = team
+    else slots[half + (i - half)] = team
+  })
 
   const r1 = matches.filter(m => m.bracket === 'W' && m.round === 1)
   r1.forEach((match, i) => {
-    match.team1_id = slots[i * 2]?.id || null
-    match.team2_id = slots[i * 2 + 1]?.id || null
+    match.team1_id = slots[i]?.id || null
+    match.team2_id = slots[i + half]?.id || null
     if (!match.team1_id || !match.team2_id) {
       match.is_bye = true
       match.status = 'complete'
