@@ -121,8 +121,9 @@
       <div class="card">
         <h2 style="font-size:16px;margin-bottom:.5rem">Create Tournament Bracket</h2>
         <p style="font-size:13px;color:#888;margin-bottom:1.25rem">
-          This randomly seeds all registered teams into a 64-team double elimination bracket. Byes are added automatically for empty slots. <strong>This action cannot be undone</strong> — registration will close.
+          This randomly seeds all registered teams into a double elimination bracket. The bracket size is automatically chosen based on team count (8, 16, 32, 64, or 128). Byes are added automatically for empty slots. <strong>This action cannot be undone</strong> — registration will close.
         </p>
+        <div id="bracketSizeNote" style="font-size:13px;color:#3a8fc1;font-weight:600;margin-bottom:1rem"></div>
         <button class="btn btn-primary" id="createBtn" onclick="createBracket()">Create Bracket</button>
         <div class="msg" id="bracketMsg"></div>
       </div>
@@ -195,6 +196,19 @@
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
       if (name === 'scores') loadMatches()
+      if (name === 'bracket') updateBracketSizeNote()
+    }
+
+    function getBracketSize(count) {
+      return [8, 16, 32, 64, 128].find(s => s >= count) || 128
+    }
+
+    async function updateBracketSizeNote() {
+      const res = await fetch('/api/teams')
+      const teams = await res.json()
+      const size = getBracketSize(teams.length)
+      const note = document.getElementById('bracketSizeNote')
+      if (note) note.textContent = `${teams.length} teams registered → will create a ${size}-team bracket with ${size - teams.length} bye(s)`
     }
 
     async function sendPaymentTexts() {

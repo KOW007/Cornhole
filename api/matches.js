@@ -5,40 +5,52 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-// ─── Bracket structure for 64-team double elimination ───────────────────────
-// WB: R1(32) R2(16) R3(8) R4(4) R5(2) R6(1)  → IDs 1-63
-// LB: R1(16) R2(16) R3(8) R4(8) R5(4) R6(4) R7(2) R8(2) R9(1) R10(1) → IDs 64-125
-// GF: 1 match → ID 126
+function getBracketSize(teamCount) {
+  const sizes = [8, 16, 32, 64, 128]
+  return sizes.find(s => s >= teamCount) || 128
+}
 
-function buildMatchStructure() {
+function getLBCounts(bracketSize, lbRounds) {
+  const counts = []
+  for (let r = 0; r < lbRounds; r++) {
+    const k = Math.floor(r / 2)
+    counts.push(bracketSize / Math.pow(2, k + 2))
+  }
+  return counts
+}
+
+function buildMatchStructure(bracketSize) {
   const matches = []
   let id = 1
 
+  const WB_ROUNDS = Math.log2(bracketSize)
+  const LB_ROUNDS = 2 * (WB_ROUNDS - 1)
+  const LB_COUNTS = getLBCounts(bracketSize, LB_ROUNDS)
+
   // Pre-assign IDs for WB
   const wb = {}
-  const WB_ROUNDS = 6
   for (let r = 1; r <= WB_ROUNDS; r++) {
     wb[r] = {}
-    const count = 64 / Math.pow(2, r)
+    const count = bracketSize / Math.pow(2, r)
     for (let p = 0; p < count; p++) wb[r][p] = id++
   }
 
   // Pre-assign IDs for LB
-  const LB_COUNTS = [16, 16, 8, 8, 4, 4, 2, 2, 1, 1]
   const lb = {}
-  for (let r = 1; r <= 10; r++) {
+  for (let r = 1; r <= LB_ROUNDS; r++) {
     lb[r] = {}
     for (let p = 0; p < LB_COUNTS[r - 1]; p++) lb[r][p] = id++
   }
 
-  const GF_ID = id++ // 126
+  const GF_ID = id++
 
-  // WB loser drops into which LB round (and position rules)
-  const WB_LOSER_TO_LB = { 1: 1, 2: 2, 3: 4, 4: 6, 5: 8, 6: 10 }
+  // WB loser drops into which LB round
+  const WB_LOSER_TO_LB = { 1: 1 }
+  for (let r = 2; r <= WB_ROUNDS; r++) WB_LOSER_TO_LB[r] = 2 * (r - 1)
 
   // Generate WB matches
   for (let r = 1; r <= WB_ROUNDS; r++) {
-    const count = 64 / Math.pow(2, r)
+    const count = bracketSize / Math.pow(2, r)
     for (let p = 0; p < count; p++) {
       const next_match_id = r < WB_ROUNDS ? wb[r + 1][Math.floor(p / 2)] : GF_ID
       const next_slot = r < WB_ROUNDS ? (p % 2) + 1 : 1
@@ -48,7 +60,7 @@ function buildMatchStructure() {
         loser_next_match_id = lb[1][Math.floor(p / 2)]
         loser_next_slot = (p % 2) + 1
       } else if (r === WB_ROUNDS) {
-        loser_next_match_id = lb[10][0]
+        loser_next_match_id = lb[LB_ROUNDS][0]
         loser_next_slot = 2
       } else {
         loser_next_match_id = lb[WB_LOSER_TO_LB[r]][p]
@@ -65,17 +77,15 @@ function buildMatchStructure() {
   }
 
   // Generate LB matches
-  for (let r = 1; r <= 10; r++) {
+  for (let r = 1; r <= LB_ROUNDS; r++) {
     const count = LB_COUNTS[r - 1]
     for (let p = 0; p < count; p++) {
       let next_match_id, next_slot
-      if (r === 10) {
+      if (r === LB_ROUNDS) {
         next_match_id = GF_ID; next_slot = 2
       } else if (r % 2 === 1) {
-        // Odd: one-to-one into next round slot 1
         next_match_id = lb[r + 1][p]; next_slot = 1
       } else {
-        // Even: halving consolidation
         next_match_id = lb[r + 1][Math.floor(p / 2)]; next_slot = (p % 2) + 1
       }
       matches.push({
@@ -98,10 +108,10 @@ function buildMatchStructure() {
   return matches
 }
 
-function assignTeams(matches, teams) {
-  // Pad to 64 with nulls (byes)
+function assignTeams(matches, teams, bracketSize) {
+  // Pad to bracketSize with nulls (byes)
   const slots = [...teams]
-  while (slots.length < 64) slots.push(null)
+  while (slots.length < bracketSize) slots.push(null)
 
   // Shuffle
   for (let i = slots.length - 1; i > 0; i--) {
@@ -172,10 +182,12 @@ module.exports = async function handler(req, res) {
     if (te) return res.status(500).json({ error: te.message })
     if (teams.length < 2) return res.status(400).json({ error: 'Need at least 2 teams.' })
 
+    const bracketSize = getBracketSize(teams.length)
+
     await supabase.from('ct_matches').delete().gte('id', 0)
 
-    let matches = buildMatchStructure()
-    matches = assignTeams(matches, teams)
+    let matches = buildMatchStructure(bracketSize)
+    matches = assignTeams(matches, teams, bracketSize)
 
     const { error: ie } = await supabase.from('ct_matches').insert(matches)
     if (ie) return res.status(500).json({ error: ie.message })
