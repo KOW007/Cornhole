@@ -66,6 +66,14 @@
               <input id="player1" type="text" placeholder="First & last name" maxlength="60" />
             </div>
             <div class="form-row">
+              <label>Partner Status</label>
+              <select id="partnerStatus" onchange="togglePlayer2()">
+                <option value="has_partner">I have a partner</option>
+                <option value="signing_up_later">My partner will sign up later</option>
+                <option value="need_partner">Looking for a partner</option>
+              </select>
+            </div>
+            <div class="form-row" id="player2Row">
               <label>Player 2</label>
               <input id="player2" type="text" placeholder="First & last name" maxlength="60" />
             </div>
@@ -107,8 +115,8 @@
       list.innerHTML = teams.map((t, i) => `
         <div class="team-item">
           <div>
-            <div class="team-name">${esc(t.name)}</div>
-            <div class="team-players">${esc(t.player1)} &amp; ${esc(t.player2)}</div>
+            <div class="team-name">${esc(t.name)}${partnerBadge(t)}</div>
+            <div class="team-players">${esc(t.player1)}${t.player2 ? ' &amp; ' + esc(t.player2) : ''}</div>
           </div>
           <span class="team-num">#${i + 1}</span>
         </div>
@@ -126,11 +134,15 @@
       const msg = document.getElementById('regMsg')
       const name = document.getElementById('teamName').value.trim()
       const p1 = document.getElementById('player1').value.trim()
-      const p2 = document.getElementById('player2').value.trim()
+      const partnerStatus = document.getElementById('partnerStatus').value
+      const p2 = partnerStatus === 'has_partner' ? document.getElementById('player2').value.trim() : ''
       const phone = document.getElementById('phone').value.trim()
 
-      if (!name || !p1 || !p2 || !phone) {
+      if (!name || !p1 || !phone) {
         msg.className = 'msg error'; msg.textContent = 'Please fill in all fields.'; return
+      }
+      if (partnerStatus === 'has_partner' && !p2) {
+        msg.className = 'msg error'; msg.textContent = 'Please enter your partner\'s name.'; return
       }
 
       btn.disabled = true; msg.textContent = ''
@@ -138,7 +150,7 @@
       const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, player1: p1, player2: p2, phone })
+        body: JSON.stringify({ name, player1: p1, player2: p2, phone, partner_status: partnerStatus })
       })
       const data = await res.json()
 
@@ -156,9 +168,22 @@
         document.getElementById('player1').value = ''
         document.getElementById('player2').value = ''
         document.getElementById('phone').value = ''
+        document.getElementById('partnerStatus').value = 'has_partner'
+        togglePlayer2()
         loadTeams()
       }
       btn.disabled = false
+    }
+
+    function togglePlayer2() {
+      const status = document.getElementById('partnerStatus').value
+      document.getElementById('player2Row').style.display = status === 'has_partner' ? 'block' : 'none'
+    }
+
+    function partnerBadge(t) {
+      if (t.partner_status === 'need_partner') return ' <span style="background:#fff3cd;color:#856404;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600">Looking for partner</span>'
+      if (t.partner_status === 'signing_up_later') return ' <span style="background:#e8f0fe;color:#3a5fb8;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600">Partner TBD</span>'
+      return ''
     }
 
     function esc(s) {
