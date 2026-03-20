@@ -156,19 +156,20 @@
       const BASE_HEIGHT = 80
 
       return `<div class="bracket-rounds">` + roundNums.map(r => {
-        // Filter out bye-only matches from display (keep real matches and partially-filled ones)
-        const allMs = rounds[r].sort((a,b) => a.position - b.position)
-        const ms = allMs.filter(m => !m.is_bye)
-        if (!ms.length) return '' // skip round if all matches are byes
+        const ms = rounds[r].sort((a,b) => a.position - b.position)
 
-        const label = bracket === 'W' ? getWBLabel(r, bracketSize) : getLBLabel(r, lbRounds)
+        // Count real (non-bye) teams in this round
+        const realTeams = ms.filter(m => !m.is_bye).length * 2
+        const totalTeams = bracketSize / Math.pow(2, r - 1)
+        const label = bracket === 'W'
+          ? (totalTeams === 2 ? 'WB Final' : totalTeams === 4 ? 'Semifinals' : totalTeams === 8 ? 'Quarterfinals' : `Round of ${totalTeams}`)
+          : getLBLabel(r, lbRounds)
 
         // For spacing: WB uses exponential, LB alternates between flat and doubling
         let wrapperHeight
         if (bracket === 'W') {
           wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
         } else {
-          // LB odd rounds keep same height as previous, even rounds double
           const effectiveR = Math.floor((r - 1) / 2)
           wrapperHeight = Math.pow(2, effectiveR) * BASE_HEIGHT
         }
