@@ -26,9 +26,9 @@ module.exports = async function handler(req, res) {
     if (setting?.value === 'true')
       return res.status(400).json({ error: 'Registration is closed — bracket has been created.' })
 
-    const { name, player1, player2 } = req.body
-    if (!name?.trim() || !player1?.trim() || !player2?.trim())
-      return res.status(400).json({ error: 'Team name and both player names are required.' })
+    const { name, player1, player2, phone } = req.body
+    if (!name?.trim() || !player1?.trim() || !player2?.trim() || !phone?.trim())
+      return res.status(400).json({ error: 'Team name, both player names, and phone number are required.' })
 
     const { count } = await supabase
       .from('ct_teams').select('*', { count: 'exact', head: true })
@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
 
     const { data, error } = await supabase
       .from('ct_teams')
-      .insert([{ name: name.trim(), player1: player1.trim(), player2: player2.trim() }])
+      .insert([{ name: name.trim(), player1: player1.trim(), player2: player2.trim(), phone: phone.trim() }])
       .select().single()
     if (error) {
       if (error.code === '23505')

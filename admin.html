@@ -190,13 +190,14 @@
       const div = document.getElementById('teamsTable')
       if (!teams.length) { div.innerHTML = '<p style="color:#aaa;font-size:14px">No teams registered.</p>'; return }
       div.innerHTML = `<table>
-        <thead><tr><th>#</th><th>Team</th><th>Player 1</th><th>Player 2</th><th>Registered</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Team</th><th>Player 1</th><th>Player 2</th><th>Phone</th><th>Registered</th><th></th></tr></thead>
         <tbody>${teams.map((t, i) => `
           <tr>
             <td>${i+1}</td>
             <td><strong>${esc(t.name)}</strong></td>
             <td>${esc(t.player1)}</td>
             <td>${esc(t.player2)}</td>
+            <td>${esc(t.phone)}</td>
             <td>${new Date(t.registered_at).toLocaleDateString()}</td>
             <td><button class="btn btn-danger" onclick="deleteTeam('${t.id}','${esc(t.name)}')">Remove</button></td>
           </tr>`).join('')}
