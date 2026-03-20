@@ -1,5 +1,4 @@
 const { createClient } = require('@supabase/supabase-js')
-const twilio = require('twilio')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -18,8 +17,6 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
 
-  const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN)
-
   const { data: teams, error } = await supabase
     .from('ct_teams').select('name, phone, partner_status')
   if (error) return res.status(500).json({ error: error.message })
@@ -27,23 +24,32 @@ module.exports = async function handler(req, res) {
   const venmoLink = 'https://venmo.com/katherine-wallin-1?txn=pay&amount=40&note=SAS%20Cornhole%20Tournament%202026'
   const message = `Hi! You're registered for the SAS Cornhole Tournament 2026. Entry fee is $40/team ($20/person). Please pay via Venmo: ${venmoLink}`
 
+  const sid = process.env.TWILIO_SID
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const from = process.env.TWILIO_PHONE
+  const auth = Buffer.from(`${sid}:${token}`).toString('base64')
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`
+
   const results = { sent: 0, failed: 0, skipped: 0 }
 
   for (const team of teams) {
     if (!team.phone) { results.skipped++; continue }
 
-    // Clean phone number — strip non-digits and add +1 if needed
     let phone = team.phone.replace(/\D/g, '')
     if (phone.length === 10) phone = '1' + phone
     phone = '+' + phone
 
     try {
-      await client.messages.create({
-        body: message,
-        from: process.env.TWILIO_PHONE,
-        to: phone
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({ From: from, To: phone, Body: message })
       })
-      results.sent++
+      if (r.ok) results.sent++
+      else results.failed++
     } catch (e) {
       results.failed++
     }
