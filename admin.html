@@ -86,6 +86,7 @@
   <div class="page" id="adminPanel" style="display:none">
     <div class="tabs">
       <div class="tab active" onclick="showTab('teams')">Teams</div>
+      <div class="tab" onclick="showTab('notify')">Send Texts</div>
       <div class="tab" onclick="showTab('bracket')">Create Bracket</div>
       <div class="tab" onclick="showTab('scores')">Enter Scores</div>
     </div>
@@ -95,6 +96,22 @@
       <div class="card">
         <h2 style="font-size:16px;margin-bottom:1rem">Registered Teams</h2>
         <div id="teamsTable">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Notify panel -->
+    <div class="panel" id="panel-notify">
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:.5rem">Send Payment Request</h2>
+        <p style="font-size:13px;color:#888;margin-bottom:1.25rem">
+          Sends a text to all registered teams with a Venmo payment link for the $40 entry fee.
+        </p>
+        <div style="background:#f0f4f8;border-radius:8px;padding:12px;font-size:13px;color:#555;margin-bottom:1.25rem">
+          <strong>Message preview:</strong><br/>
+          Hi! You're registered for the SAS Cornhole Tournament 2026. Entry fee is $40/team ($20/person). Please pay via Venmo: venmo.com/katherine-wallin-1
+        </div>
+        <button class="btn btn-primary" onclick="sendPaymentTexts()">Send Texts to All Teams</button>
+        <div class="msg" id="notifyMsg"></div>
       </div>
     </div>
 
@@ -172,11 +189,25 @@
 
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['teams','bracket','scores'][i] === name)
+        t.classList.toggle('active', ['teams','notify','bracket','scores'][i] === name)
       })
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
       if (name === 'scores') loadMatches()
+    }
+
+    async function sendPaymentTexts() {
+      const msg = document.getElementById('notifyMsg')
+      if (!confirm('Send payment request texts to all registered teams?')) return
+      msg.className = 'msg'; msg.textContent = 'Sending...'
+      const res = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; return }
+      msg.className = 'msg success'
+      msg.textContent = `✓ Sent: ${data.sent} | Failed: ${data.failed} | Skipped (no phone): ${data.skipped}`
     }
 
     async function loadAll() {
