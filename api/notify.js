@@ -41,7 +41,8 @@ module.exports = async function handler(req, res) {
 
     let phone = team.phone.replace(/\D/g, '')
     if (phone.length === 10) phone = '1' + phone
-    phone = '+' + phone
+    else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
+    if (!phone.startsWith('+')) phone = '+' + phone
 
     try {
       const r = await fetch(url, {
