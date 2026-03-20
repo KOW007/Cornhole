@@ -120,7 +120,21 @@
         </div>`
     }
 
-    function renderBracket(matches, bracket, roundLabels) {
+    function getWBLabel(r, bracketSize) {
+      const teams = bracketSize / Math.pow(2, r - 1)
+      if (teams === 2) return 'WB Final'
+      if (teams === 4) return 'Semifinals'
+      if (teams === 8) return 'Quarterfinals'
+      return `Round of ${teams}`
+    }
+
+    function getLBLabel(r, lbRounds) {
+      if (r === lbRounds) return 'Consolation Final'
+      if (r === lbRounds - 1) return 'Consolation Semis'
+      return `Consolation R${r}`
+    }
+
+    function renderBracket(matches, bracket) {
       const rounds = {}
       matches.filter(m => m.bracket === bracket).forEach(m => {
         if (!rounds[m.round]) rounds[m.round] = []
@@ -129,12 +143,35 @@
       const roundNums = Object.keys(rounds).map(Number).sort((a,b) => a-b)
       if (!roundNums.length) return '<div class="empty-bracket">Bracket not created yet.</div>'
 
-      const BASE_HEIGHT = 80 // px per match slot in round 1
+      // Infer bracketSize from WB R1 match count * 2
+      const wbMatches = matches.filter(m => m.bracket === 'W')
+      const r1Count = wbMatches.filter(m => m.round === 1).length
+      const bracketSize = r1Count * 2
+      const wbRounds = Math.log2(bracketSize)
+      const lbRounds = matches.filter(m => m.bracket === 'L').length > 0
+        ? Math.max(...matches.filter(m => m.bracket === 'L').map(m => m.round))
+        : 0
+
+      const BASE_HEIGHT = 80
 
       return `<div class="bracket-rounds">` + roundNums.map(r => {
-        const label = roundLabels?.[r] || `Round ${r}`
-        const ms = rounds[r].sort((a,b) => a.position - b.position)
-        const wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
+        // Filter out bye-only matches from display (keep real matches and partially-filled ones)
+        const allMs = rounds[r].sort((a,b) => a.position - b.position)
+        const ms = allMs.filter(m => !m.is_bye)
+        if (!ms.length) return '' // skip round if all matches are byes
+
+        const label = bracket === 'W' ? getWBLabel(r, bracketSize) : getLBLabel(r, lbRounds)
+
+        // For spacing: WB uses exponential, LB alternates between flat and doubling
+        let wrapperHeight
+        if (bracket === 'W') {
+          wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
+        } else {
+          // LB odd rounds keep same height as previous, even rounds double
+          const effectiveR = Math.floor((r - 1) / 2)
+          wrapperHeight = Math.pow(2, effectiveR) * BASE_HEIGHT
+        }
+
         return `
           <div class="round-col">
             <div class="round-label">${label}</div>
@@ -171,15 +208,12 @@
       </div>`
     }
 
-    const WB_LABELS = { 1:'Round 1', 2:'Round 2', 3:'Round 3', 4:'Quarterfinals', 5:'Semifinals', 6:'WB Final' }
-    const LB_LABELS = { 1:'LB R1', 2:'LB R2', 3:'LB R3', 4:'LB R4', 5:'LB R5', 6:'LB R6', 7:'LB R7', 8:'LB R8', 9:'LB Semis', 10:'LB Final' }
-
     async function load() {
       const res = await fetch('/api/matches')
       if (!res.ok) return
       const matches = await res.json()
-      document.getElementById('winnersBracket').innerHTML = renderBracket(matches, 'W', WB_LABELS)
-      document.getElementById('losersBracket').innerHTML = renderBracket(matches, 'L', LB_LABELS)
+      document.getElementById('winnersBracket').innerHTML = renderBracket(matches, 'W')
+      document.getElementById('losersBracket').innerHTML = renderBracket(matches, 'L')
       document.getElementById('gfSection').innerHTML = renderGF(matches)
       document.getElementById('refreshNote').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
     }
