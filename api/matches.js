@@ -10,22 +10,13 @@ function getBracketSize(teamCount) {
   return sizes.find(s => s >= teamCount) || 128
 }
 
-function getLBCounts(bracketSize, lbRounds) {
-  const counts = []
-  for (let r = 0; r < lbRounds; r++) {
-    const k = Math.floor(r / 2)
-    counts.push(bracketSize / Math.pow(2, k + 2))
-  }
-  return counts
-}
-
 function buildMatchStructure(bracketSize) {
   const matches = []
   let id = 1
 
   const WB_ROUNDS = Math.log2(bracketSize)
-  const LB_ROUNDS = 2 * (WB_ROUNDS - 1)
-  const LB_COUNTS = getLBCounts(bracketSize, LB_ROUNDS)
+  // Consolation = simple single-elimination of WB R1 losers, narrows each round
+  const LB_ROUNDS = WB_ROUNDS - 1
 
   // Pre-assign IDs for WB
   const wb = {}
@@ -35,16 +26,14 @@ function buildMatchStructure(bracketSize) {
     for (let p = 0; p < count; p++) wb[r][p] = id++
   }
 
-  // Pre-assign IDs for LB
+  // Pre-assign IDs for LB (single elimination, halves each round)
+  // LB Rr has bracketSize / 2^(r+1) matches
   const lb = {}
   for (let r = 1; r <= LB_ROUNDS; r++) {
     lb[r] = {}
-    for (let p = 0; p < LB_COUNTS[r - 1]; p++) lb[r][p] = id++
+    const count = bracketSize / Math.pow(2, r + 1)
+    for (let p = 0; p < count; p++) lb[r][p] = id++
   }
-
-  // WB loser drops into which LB round
-  const WB_LOSER_TO_LB = { 1: 1 }
-  for (let r = 2; r <= WB_ROUNDS; r++) WB_LOSER_TO_LB[r] = 2 * (r - 1)
 
   // Generate WB matches
   for (let r = 1; r <= WB_ROUNDS; r++) {
@@ -53,17 +42,11 @@ function buildMatchStructure(bracketSize) {
       const next_match_id = r < WB_ROUNDS ? wb[r + 1][Math.floor(p / 2)] : null
       const next_slot = r < WB_ROUNDS ? (p % 2) + 1 : null
 
-      let loser_next_match_id, loser_next_slot
-      if (r === 1) {
+      // Only WB R1 losers go to consolation
+      let loser_next_match_id = null, loser_next_slot = null
+      if (r === 1 && LB_ROUNDS > 0) {
         loser_next_match_id = lb[1][Math.floor(p / 2)]
         loser_next_slot = (p % 2) + 1
-      } else if (r === WB_ROUNDS) {
-        // WB Final loser is eliminated — no consolation play
-        loser_next_match_id = null
-        loser_next_slot = null
-      } else {
-        loser_next_match_id = lb[WB_LOSER_TO_LB[r]][p]
-        loser_next_slot = 2
       }
 
       matches.push({
@@ -75,18 +58,12 @@ function buildMatchStructure(bracketSize) {
     }
   }
 
-  // Generate LB matches
+  // Generate LB matches (simple single elimination)
   for (let r = 1; r <= LB_ROUNDS; r++) {
-    const count = LB_COUNTS[r - 1]
+    const count = bracketSize / Math.pow(2, r + 1)
     for (let p = 0; p < count; p++) {
-      let next_match_id, next_slot
-      if (r === LB_ROUNDS) {
-        next_match_id = null; next_slot = null
-      } else if (r % 2 === 1) {
-        next_match_id = lb[r + 1][p]; next_slot = 1
-      } else {
-        next_match_id = lb[r + 1][Math.floor(p / 2)]; next_slot = (p % 2) + 1
-      }
+      const next_match_id = r < LB_ROUNDS ? lb[r + 1][Math.floor(p / 2)] : null
+      const next_slot = r < LB_ROUNDS ? (p % 2) + 1 : null
       matches.push({
         id: lb[r][p], bracket: 'L', round: r, position: p,
         team1_id: null, team2_id: null, score1: null, score2: null, winner_id: null,
@@ -100,27 +77,28 @@ function buildMatchStructure(bracketSize) {
 }
 
 function assignTeams(matches, teams, bracketSize) {
-  // Shuffle real teams
   const shuffled = [...teams]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
 
-  // Interleave to avoid double byes:
-  // First half of slots = one side of R1, second half = other side
-  // Byes (nulls) go at the end of each half, spreading them across different matches
-  const half = bracketSize / 2
-  const slots = new Array(bracketSize).fill(null)
-  shuffled.forEach((team, i) => {
-    if (i < half) slots[i] = team
-    else slots[half + (i - half)] = team
-  })
+  const numMatches = bracketSize / 2
+  const numRealVsReal = Math.max(0, teams.length - numMatches)
 
-  const r1 = matches.filter(m => m.bracket === 'W' && m.round === 1)
+  // Spread real-vs-real matches evenly across R1 positions
+  const realPositions = new Set()
+  for (let i = 0; i < numRealVsReal; i++) {
+    realPositions.add(Math.round(i * numMatches / numRealVsReal))
+  }
+
+  const r1 = matches.filter(m => m.bracket === 'W' && m.round === 1).sort((a, b) => a.position - b.position)
+  let teamIdx = 0
   r1.forEach((match, i) => {
-    match.team1_id = slots[i]?.id || null
-    match.team2_id = slots[i + half]?.id || null
+    match.team1_id = shuffled[teamIdx++]?.id || null
+    if (realPositions.has(i)) {
+      match.team2_id = shuffled[teamIdx++]?.id || null
+    }
     if (!match.team1_id || !match.team2_id) {
       match.is_bye = true
       match.status = 'complete'
@@ -128,31 +106,41 @@ function assignTeams(matches, teams, bracketSize) {
     }
   })
 
-  // Propagate bye winners into next rounds
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const m of matches) {
+  // No propagation at creation — teams advance only when scores are entered
+  return matches
+}
+
+async function propagateByes() {
+  for (let pass = 0; pass < 20; pass++) {
+    const { data: allMatches } = await supabase.from('ct_matches').select('*')
+    if (!allMatches) break
+    const matchMap = Object.fromEntries(allMatches.map(m => [m.id, { ...m }]))
+    let changed = false
+
+    for (const m of allMatches) {
       if (m.status === 'complete' && m.winner_id && m.next_match_id) {
-        const next = matches.find(x => x.id === m.next_match_id)
+        const next = matchMap[m.next_match_id]
         if (!next) continue
-        const slot = m.next_slot === 1 ? 'team1_id' : 'team2_id'
-        if (!next[slot]) {
-          next[slot] = m.winner_id
-          // If next match now has both slots filled and is a bye, auto-complete
-          if (next.bracket === 'W' && (!next.team1_id || !next.team2_id) &&
-              (next.team1_id || next.team2_id)) {
-            next.is_bye = true
-            next.status = 'complete'
-            next.winner_id = next.team1_id || next.team2_id
-          }
+        const slotField = m.next_slot === 1 ? 'team1_id' : 'team2_id'
+        if (!next[slotField]) {
+          await supabase.from('ct_matches').update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
+          next[slotField] = m.winner_id
           changed = true
+          // If next match now has exactly one team, auto-complete as bye
+          if ((!next.team1_id || !next.team2_id) && (next.team1_id || next.team2_id) && next.status !== 'complete') {
+            const winnerId = next.team1_id || next.team2_id
+            await supabase.from('ct_matches').update({
+              winner_id: winnerId, status: 'complete', is_bye: true
+            }).eq('id', m.next_match_id)
+            next.winner_id = winnerId
+            next.status = 'complete'
+            next.is_bye = true
+          }
         }
       }
     }
+    if (!changed) break
   }
-
-  return matches
 }
 
 module.exports = async function handler(req, res) {
@@ -170,7 +158,6 @@ module.exports = async function handler(req, res) {
     return res.json(data)
   }
 
-  // Admin required for POST and PUT
   if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD)
     return res.status(401).json({ error: 'Unauthorized' })
 
@@ -225,6 +212,9 @@ module.exports = async function handler(req, res) {
       await supabase.from('ct_matches')
         .update({ [slot]: loser_id }).eq('id', match.loser_next_match_id)
     }
+
+    // Propagate any bye wins that are now unblocked
+    await propagateByes()
 
     return res.json({ success: true })
   }

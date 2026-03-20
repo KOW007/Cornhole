@@ -129,10 +129,11 @@
       return `Round of ${teams}`
     }
 
-    function getLBLabel(r, lbRounds) {
+    function getLBLabel(r, lbRounds, bracketSize) {
       if (r === lbRounds) return 'Consolation Final'
       if (r === lbRounds - 1) return 'Consolation Semis'
-      return `Consolation R${r}`
+      const teams = bracketSize / Math.pow(2, r)
+      return `Consolation Round of ${teams}`
     }
 
     function renderBracket(matches, bracket) {
@@ -163,15 +164,14 @@
         const totalTeams = bracketSize / Math.pow(2, r - 1)
         const label = bracket === 'W'
           ? (totalTeams === 2 ? 'WB Final' : totalTeams === 4 ? 'Semifinals' : totalTeams === 8 ? 'Quarterfinals' : `Round of ${totalTeams}`)
-          : getLBLabel(r, lbRounds)
+          : getLBLabel(r, lbRounds, bracketSize)
 
         // For spacing: WB uses exponential, LB alternates between flat and doubling
         let wrapperHeight
         if (bracket === 'W') {
           wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
         } else {
-          const effectiveR = Math.floor((r - 1) / 2)
-          wrapperHeight = Math.pow(2, effectiveR) * BASE_HEIGHT
+          wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
         }
 
         return `

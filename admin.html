@@ -89,6 +89,7 @@
       <div class="tab" onclick="showTab('notify')">Send Texts</div>
       <div class="tab" onclick="showTab('bracket')">Create Bracket</div>
       <div class="tab" onclick="showTab('scores')">Enter Scores</div>
+      <div class="tab" onclick="showTab('view-bracket')">View Bracket</div>
     </div>
 
     <!-- Teams panel -->
@@ -132,6 +133,11 @@
         <button class="btn btn-danger" onclick="resetBracket()">Reset Bracket & Reopen Registration</button>
         <div class="msg" id="resetMsg"></div>
       </div>
+    </div>
+
+    <!-- View Bracket panel -->
+    <div class="panel" id="panel-view-bracket">
+      <iframe src="/bracket.html" style="width:100%;height:80vh;border:none;border-radius:8px"></iframe>
     </div>
 
     <!-- Scores panel -->
@@ -191,7 +197,7 @@
 
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['teams','notify','bracket','scores'][i] === name)
+        t.classList.toggle('active', ['teams','notify','bracket','scores','view-bracket'][i] === name)
       })
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
