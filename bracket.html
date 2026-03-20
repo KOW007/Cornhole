@@ -31,6 +31,8 @@
       margin: 0 4px; flex: 1; overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
+    .match-card.clickable { cursor: pointer; }
+    .match-card.clickable:hover { border-color: #3a8fc1; box-shadow: 0 2px 8px rgba(58,143,193,0.25); }
     .match-team {
       padding: 6px 10px; font-size: 12px; display: flex;
       justify-content: space-between; align-items: center;
@@ -41,7 +43,6 @@
     .match-team.bye { color: #bbb; font-style: italic; }
     .team-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .team-score { font-weight: 700; margin-left: 8px; min-width: 20px; text-align: right; }
-    .match-id { font-size: 9px; color: #ccc; padding: 2px 10px; background: #fafafa; }
 
     /* Connector lines */
     .connector { width: 20px; display: flex; flex-direction: column; align-items: flex-start; }
@@ -50,14 +51,29 @@
     .gf-wrapper { padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
     .gf-card { background: white; border: 2px solid #3a8fc1; border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; box-shadow: 0 2px 8px rgba(58,143,193,0.2); }
     .gf-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #3a8fc1; margin-bottom: 1rem; }
-    .gf-team { padding: 10px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; font-weight: 600; background: #f0f4f8; display: flex; justify-content: space-between; }
-    .gf-team.winner { background: #deeef8; color: #0f0f0f; }
-    .champion { background: #fff8e1; border: 2px solid #f0c040; border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; }
-    .champion-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #b8860b; }
     .champion-name { font-size: 22px; font-weight: 800; color: #1a1a18; margin-top: 8px; }
 
     .empty-bracket { text-align: center; padding: 4rem; color: #aaa; font-size: 15px; }
     .refresh-note { font-size: 12px; color: #aaa; text-align: right; padding: 0.5rem 1.5rem; }
+
+    /* Score modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: white; border-radius: 12px; padding: 2rem; min-width: 320px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 1.25rem; }
+    .modal-teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
+    .modal-team { text-align: center; }
+    .modal-team-name { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    .modal-score-input { width: 100%; text-align: center; font-size: 28px; font-weight: 700; padding: 10px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+    .modal-score-input:focus { border-color: #3a8fc1; }
+    .modal-vs { font-size: 18px; font-weight: 700; color: #aaa; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+    .modal-msg { font-size: 13px; color: #c0392b; min-height: 18px; margin-top: 8px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-primary { background: #3a8fc1; color: white; }
+    .btn-primary:hover { background: #2a7aaa; }
+    .btn-secondary { background: #f0f0f0; color: #555; }
+    .btn-secondary:hover { background: #e0e0e0; }
   </style>
 </head>
 <body>
@@ -86,14 +102,42 @@
     <div id="championsSection"></div>
   </div>
 
+  <!-- Score entry modal (admin mode only) -->
+  <div class="modal-overlay" id="scoreModal" onclick="if(event.target===this)closeModal()">
+    <div class="modal-box">
+      <div class="modal-title">Enter Score</div>
+      <div class="modal-teams">
+        <div class="modal-team">
+          <div class="modal-team-name" id="modalTeam1Name"></div>
+          <input class="modal-score-input" type="number" id="modalScore1" min="0" placeholder="0" />
+        </div>
+        <div class="modal-vs">vs</div>
+        <div class="modal-team">
+          <div class="modal-team-name" id="modalTeam2Name"></div>
+          <input class="modal-score-input" type="number" id="modalScore2" min="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="modal-msg" id="modalMsg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitModalScore()">Save Score</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    const adminMode = new URLSearchParams(location.search).get('mode') === 'admin'
+      || !!sessionStorage.getItem('adminPw')
+
+    let currentMatches = []
+    let currentMatchId = null
+
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
         t.classList.toggle('active', ['winners','losers','champions'][i] === name)
       })
       document.querySelectorAll('.bracket-panel').forEach(p => p.classList.remove('active'))
       document.getElementById('tab-' + name).classList.add('active')
-
     }
 
     function esc(s) {
@@ -101,15 +145,14 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     }
 
-    function teamName(t) { return t ? esc(t.name) : '<span style="color:#ccc">TBD</span>' }
-
     function renderMatch(m) {
       const t1win = m.winner_id && m.team1 && m.winner_id === m.team1.id
       const t2win = m.winner_id && m.team2 && m.winner_id === m.team2.id
       const t1bye = !m.team1 && m.is_bye
       const t2bye = !m.team2 && m.is_bye
+      const clickable = adminMode && m.team1_id && m.team2_id && m.status !== 'complete' && !m.is_bye
       return `
-        <div class="match-card">
+        <div class="match-card${clickable ? ' clickable' : ''}"${clickable ? ` onclick="openScoreModal(${m.id})"` : ''}>
           <div class="match-team ${t1win ? 'winner' : ''} ${t1bye ? 'bye' : ''}">
             <span class="team-label">${m.team1 ? esc(m.team1.name) : (m.is_bye ? 'BYE' : '<span style=color:#ccc>TBD</span>')}</span>
             <span class="team-score">${m.score1 != null ? m.score1 : ''}</span>
@@ -119,14 +162,6 @@
             <span class="team-score">${m.score2 != null ? m.score2 : ''}</span>
           </div>
         </div>`
-    }
-
-    function getWBLabel(r, bracketSize) {
-      const teams = bracketSize / Math.pow(2, r - 1)
-      if (teams === 2) return 'Main Bracket Final'
-      if (teams === 4) return 'Semifinals'
-      if (teams === 8) return 'Quarterfinals'
-      return `Round of ${teams}`
     }
 
     function getLBLabel(r, lbRounds, bracketSize) {
@@ -145,11 +180,9 @@
       const roundNums = Object.keys(rounds).map(Number).sort((a,b) => a-b)
       if (!roundNums.length) return '<div class="empty-bracket">Bracket not created yet.</div>'
 
-      // Infer bracketSize from WB R1 match count * 2
       const wbMatches = matches.filter(m => m.bracket === 'W')
       const r1Count = wbMatches.filter(m => m.round === 1).length
       const bracketSize = r1Count * 2
-      const wbRounds = Math.log2(bracketSize)
       const lbRounds = matches.filter(m => m.bracket === 'L').length > 0
         ? Math.max(...matches.filter(m => m.bracket === 'L').map(m => m.round))
         : 0
@@ -158,21 +191,12 @@
 
       return `<div class="bracket-rounds">` + roundNums.map(r => {
         const ms = rounds[r].sort((a,b) => a.position - b.position)
-
-        // Count real (non-bye) teams in this round
-        const realTeams = ms.filter(m => !m.is_bye).length * 2
         const totalTeams = bracketSize / Math.pow(2, r - 1)
         const label = bracket === 'W'
           ? (totalTeams === 2 ? 'Main Bracket Final' : totalTeams === 4 ? 'Semifinals' : totalTeams === 8 ? 'Quarterfinals' : `Round of ${totalTeams}`)
           : getLBLabel(r, lbRounds, bracketSize)
 
-        // For spacing: WB uses exponential, LB alternates between flat and doubling
-        let wrapperHeight
-        if (bracket === 'W') {
-          wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
-        } else {
-          wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
-        }
+        const wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
 
         return `
           <div class="round-col">
@@ -185,7 +209,6 @@
     function renderChampions(matches) {
       const wbFinal = matches.filter(m => m.bracket === 'W').sort((a,b) => b.round - a.round)[0]
       const lbFinal = matches.filter(m => m.bracket === 'L').sort((a,b) => b.round - a.round)[0]
-
       const wbChamp = wbFinal?.winner
       const lbChamp = lbFinal?.winner
 
@@ -205,13 +228,50 @@
       </div>`
     }
 
+    function openScoreModal(matchId) {
+      const m = currentMatches.find(x => x.id === matchId)
+      if (!m) return
+      currentMatchId = matchId
+      document.getElementById('modalTeam1Name').textContent = m.team1?.name || 'Team 1'
+      document.getElementById('modalTeam2Name').textContent = m.team2?.name || 'Team 2'
+      document.getElementById('modalScore1').value = ''
+      document.getElementById('modalScore2').value = ''
+      document.getElementById('modalMsg').textContent = ''
+      document.getElementById('scoreModal').classList.add('open')
+      document.getElementById('modalScore1').focus()
+    }
+
+    function closeModal() {
+      document.getElementById('scoreModal').classList.remove('open')
+      currentMatchId = null
+    }
+
+    async function submitModalScore() {
+      const score1 = parseInt(document.getElementById('modalScore1').value)
+      const score2 = parseInt(document.getElementById('modalScore2').value)
+      const msg = document.getElementById('modalMsg')
+      if (isNaN(score1) || isNaN(score2)) { msg.textContent = 'Enter both scores.'; return }
+      if (score1 === score2) { msg.textContent = 'Scores cannot be tied.'; return }
+
+      const pw = sessionStorage.getItem('adminPw')
+      const res = await fetch('/api/matches', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': pw },
+        body: JSON.stringify({ match_id: currentMatchId, score1, score2 })
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.textContent = data.error || 'Error saving score.'; return }
+      closeModal()
+      load()
+    }
+
     async function load() {
       const res = await fetch('/api/matches')
       if (!res.ok) return
-      const matches = await res.json()
-      document.getElementById('winnersBracket').innerHTML = renderBracket(matches, 'W')
-      document.getElementById('losersBracket').innerHTML = renderBracket(matches, 'L')
-      document.getElementById('championsSection').innerHTML = renderChampions(matches)
+      currentMatches = await res.json()
+      document.getElementById('winnersBracket').innerHTML = renderBracket(currentMatches, 'W')
+      document.getElementById('losersBracket').innerHTML = renderBracket(currentMatches, 'L')
+      document.getElementById('championsSection').innerHTML = renderChampions(currentMatches)
       document.getElementById('refreshNote').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
     }
 
