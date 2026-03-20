@@ -117,28 +117,47 @@ async function propagateByes() {
     const matchMap = Object.fromEntries(allMatches.map(m => [m.id, { ...m }]))
     let changed = false
 
+    // Phase 1: fill all empty next-match slots from complete matches
     for (const m of allMatches) {
-      if (m.status === 'complete' && m.winner_id && m.next_match_id) {
-        const next = matchMap[m.next_match_id]
-        if (!next) continue
-        const slotField = m.next_slot === 1 ? 'team1_id' : 'team2_id'
-        if (!next[slotField]) {
-          await supabase.from('ct_matches').update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
-          next[slotField] = m.winner_id
-          changed = true
-          // If next match now has exactly one team, auto-complete as bye
-          if ((!next.team1_id || !next.team2_id) && (next.team1_id || next.team2_id) && next.status !== 'complete') {
-            const winnerId = next.team1_id || next.team2_id
-            await supabase.from('ct_matches').update({
-              winner_id: winnerId, status: 'complete', is_bye: true
-            }).eq('id', m.next_match_id)
-            next.winner_id = winnerId
-            next.status = 'complete'
-            next.is_bye = true
-          }
-        }
+      if (m.status !== 'complete' || !m.winner_id || !m.next_match_id) continue
+      const next = matchMap[m.next_match_id]
+      if (!next || next.status === 'complete') continue
+      const slotField = m.next_slot === 1 ? 'team1_id' : 'team2_id'
+      if (!next[slotField]) {
+        await supabase.from('ct_matches').update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
+        next[slotField] = m.winner_id
+        changed = true
       }
     }
+
+    // Phase 2: auto-complete matches whose empty slot(s) can never be filled.
+    // A slot is "settled" if it already has a team OR every match that feeds into
+    // that slot is already complete (so no team is coming).
+    const allMaps = Object.values(matchMap)
+    for (const next of allMaps) {
+      if (next.status === 'complete') continue
+      if (next.team1_id && next.team2_id) continue  // two real teams — needs a score
+
+      const feedersFor = (slotNum) => allMaps.filter(f =>
+        (f.next_match_id === next.id && f.next_slot === slotNum) ||
+        (f.loser_next_match_id === next.id && f.loser_next_slot === slotNum)
+      )
+
+      const slot1Settled = !!next.team1_id || feedersFor(1).every(f => f.status === 'complete')
+      const slot2Settled = !!next.team2_id || feedersFor(2).every(f => f.status === 'complete')
+
+      if (slot1Settled && slot2Settled) {
+        const winnerId = next.team1_id || next.team2_id || null
+        await supabase.from('ct_matches').update({
+          winner_id: winnerId, status: 'complete', is_bye: true
+        }).eq('id', next.id)
+        next.winner_id = winnerId
+        next.status = 'complete'
+        next.is_bye = true
+        changed = true
+      }
+    }
+
     if (!changed) break
   }
 }
