@@ -36,6 +36,13 @@
     .badge { display: inline-block; background: #deeef8; color: #3a8fc1; border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
     .closed-banner { background: #fff3cd; border: 1px solid #f0ad4e; border-radius: 8px; padding: 12px 16px; font-size: 14px; color: #856404; margin-bottom: 1.25rem; }
     .empty { color: #aaa; font-size: 14px; text-align: center; padding: 2rem; }
+    .btn-join { background: #3a8fc1; color: white; border: none; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-join:hover { background: #2a7aaa; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 12px; padding: 1.5rem; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .modal h3 { font-size: 16px; margin-bottom: 1rem; }
+    .modal-close { float: right; background: none; border: none; font-size: 18px; cursor: pointer; color: #aaa; }
   </style>
 </head>
 <body>
@@ -100,6 +107,24 @@
     </div>
   </div>
 
+  <!-- Join Team Modal -->
+  <div class="modal-overlay" id="joinModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeJoinModal()">×</button>
+      <h3>Join Team: <span id="joinTeamName"></span></h3>
+      <div class="form-row">
+        <label>Your Name</label>
+        <input id="joinName" type="text" placeholder="First & last name" maxlength="60" />
+      </div>
+      <div class="form-row">
+        <label>Your Phone</label>
+        <input id="joinPhone" type="tel" placeholder="e.g. 512-555-1234" maxlength="20" />
+      </div>
+      <button class="btn btn-primary" onclick="submitJoin()">Join Team</button>
+      <div class="msg" id="joinMsg"></div>
+    </div>
+  </div>
+
   <script>
     async function loadTeams() {
       const res = await fetch('/api/teams')
@@ -118,7 +143,10 @@
             <div class="team-name">${esc(t.name)}${partnerBadge(t)}</div>
             <div class="team-players">${esc(t.player1)}${t.player2 ? ' &amp; ' + esc(t.player2) : ''}</div>
           </div>
-          <span class="team-num">#${i + 1}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${t.partner_status === 'need_partner' ? `<button class="btn-join" onclick="openJoinModal('${t.id}','${esc(t.name)}')">Join Team</button>` : ''}
+            <span class="team-num">#${i + 1}</span>
+          </div>
         </div>
       `).join('')
     }
@@ -173,6 +201,37 @@
         loadTeams()
       }
       btn.disabled = false
+    }
+
+    let joinTeamId = null
+
+    function openJoinModal(id, name) {
+      joinTeamId = id
+      document.getElementById('joinTeamName').textContent = name
+      document.getElementById('joinName').value = ''
+      document.getElementById('joinPhone').value = ''
+      document.getElementById('joinMsg').textContent = ''
+      document.getElementById('joinModal').classList.add('open')
+    }
+
+    function closeJoinModal() {
+      document.getElementById('joinModal').classList.remove('open')
+    }
+
+    async function submitJoin() {
+      const player2 = document.getElementById('joinName').value.trim()
+      const phone2 = document.getElementById('joinPhone').value.trim()
+      const msg = document.getElementById('joinMsg')
+      if (!player2 || !phone2) { msg.className = 'msg error'; msg.textContent = 'Please fill in all fields.'; return }
+      const res = await fetch('/api/teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_id: joinTeamId, player2, phone2 })
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; return }
+      msg.className = 'msg success'; msg.textContent = '✓ You have joined the team!'
+      setTimeout(() => { closeJoinModal(); loadTeams() }, 1500)
     }
 
     function togglePlayer2() {

@@ -7,7 +7,7 @@ const supabase = createClient(
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
@@ -47,6 +47,24 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: error.message })
     }
     return res.status(201).json(data)
+  }
+
+  if (req.method === 'PUT') {
+    // Join a team as player 2
+    const { team_id, player2, phone2 } = req.body
+    if (!team_id || !player2?.trim() || !phone2?.trim())
+      return res.status(400).json({ error: 'Name and phone are required.' })
+
+    const { data: team } = await supabase.from('ct_teams').select('*').eq('id', team_id).single()
+    if (!team) return res.status(404).json({ error: 'Team not found.' })
+    if (team.partner_status !== 'need_partner')
+      return res.status(400).json({ error: 'This team is no longer looking for a partner.' })
+
+    const { error } = await supabase.from('ct_teams')
+      .update({ player2: player2.trim(), partner_status: 'has_partner' })
+      .eq('id', team_id)
+    if (error) return res.status(500).json({ error: error.message })
+    return res.json({ success: true })
   }
 
   if (req.method === 'DELETE') {
