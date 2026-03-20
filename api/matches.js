@@ -42,8 +42,6 @@ function buildMatchStructure(bracketSize) {
     for (let p = 0; p < LB_COUNTS[r - 1]; p++) lb[r][p] = id++
   }
 
-  const GF_ID = id++
-
   // WB loser drops into which LB round
   const WB_LOSER_TO_LB = { 1: 1 }
   for (let r = 2; r <= WB_ROUNDS; r++) WB_LOSER_TO_LB[r] = 2 * (r - 1)
@@ -52,16 +50,17 @@ function buildMatchStructure(bracketSize) {
   for (let r = 1; r <= WB_ROUNDS; r++) {
     const count = bracketSize / Math.pow(2, r)
     for (let p = 0; p < count; p++) {
-      const next_match_id = r < WB_ROUNDS ? wb[r + 1][Math.floor(p / 2)] : GF_ID
-      const next_slot = r < WB_ROUNDS ? (p % 2) + 1 : 1
+      const next_match_id = r < WB_ROUNDS ? wb[r + 1][Math.floor(p / 2)] : null
+      const next_slot = r < WB_ROUNDS ? (p % 2) + 1 : null
 
       let loser_next_match_id, loser_next_slot
       if (r === 1) {
         loser_next_match_id = lb[1][Math.floor(p / 2)]
         loser_next_slot = (p % 2) + 1
       } else if (r === WB_ROUNDS) {
-        loser_next_match_id = lb[LB_ROUNDS][0]
-        loser_next_slot = 2
+        // WB Final loser is eliminated — no consolation play
+        loser_next_match_id = null
+        loser_next_slot = null
       } else {
         loser_next_match_id = lb[WB_LOSER_TO_LB[r]][p]
         loser_next_slot = 2
@@ -82,7 +81,7 @@ function buildMatchStructure(bracketSize) {
     for (let p = 0; p < count; p++) {
       let next_match_id, next_slot
       if (r === LB_ROUNDS) {
-        next_match_id = GF_ID; next_slot = 2
+        next_match_id = null; next_slot = null
       } else if (r % 2 === 1) {
         next_match_id = lb[r + 1][p]; next_slot = 1
       } else {
@@ -96,14 +95,6 @@ function buildMatchStructure(bracketSize) {
       })
     }
   }
-
-  // Grand Final
-  matches.push({
-    id: GF_ID, bracket: 'G', round: 1, position: 0,
-    team1_id: null, team2_id: null, score1: null, score2: null, winner_id: null,
-    next_match_id: null, next_slot: null, loser_next_match_id: null, loser_next_slot: null,
-    status: 'pending', is_bye: false
-  })
 
   return matches
 }

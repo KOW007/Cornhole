@@ -72,7 +72,7 @@
   <div class="tabs">
     <div class="tab active" onclick="showTab('winners')">Winners Bracket</div>
     <div class="tab" onclick="showTab('losers')">Consolation Bracket</div>
-    <div class="tab" onclick="showTab('gf')">Grand Final</div>
+    <div class="tab" onclick="showTab('champions')">Champions</div>
   </div>
   <div class="refresh-note" id="refreshNote">Auto-refreshes every 30s</div>
 
@@ -82,17 +82,18 @@
   <div id="tab-losers" class="bracket-panel">
     <div id="losersBracket"></div>
   </div>
-  <div id="tab-gf" class="bracket-panel">
-    <div id="gfSection"></div>
+  <div id="tab-champions" class="bracket-panel">
+    <div id="championsSection"></div>
   </div>
 
   <script>
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['winners','losers','gf'][i] === name)
+        t.classList.toggle('active', ['winners','losers','champions'][i] === name)
       })
       document.querySelectorAll('.bracket-panel').forEach(p => p.classList.remove('active'))
       document.getElementById('tab-' + name).classList.add('active')
+
     }
 
     function esc(s) {
@@ -180,31 +181,26 @@
       }).join('') + '</div>'
     }
 
-    function renderGF(matches) {
-      const gf = matches.find(m => m.bracket === 'G')
-      if (!gf) return '<div class="empty-bracket">Grand Final not yet reached.</div>'
+    function renderChampions(matches) {
+      const wbFinal = matches.filter(m => m.bracket === 'W').sort((a,b) => b.round - a.round)[0]
+      const lbFinal = matches.filter(m => m.bracket === 'L').sort((a,b) => b.round - a.round)[0]
 
-      const champion = gf.winner ? gf.winner : null
-      const t1win = gf.winner_id && gf.team1 && gf.winner_id === gf.team1.id
-      const t2win = gf.winner_id && gf.team2 && gf.winner_id === gf.team2.id
+      const wbChamp = wbFinal?.winner
+      const lbChamp = lbFinal?.winner
 
       return `<div class="gf-wrapper">
         <div class="gf-card">
-          <div class="gf-title">🏆 Grand Final</div>
-          <div class="gf-team ${t1win ? 'winner' : ''}">
-            <span>${gf.team1 ? esc(gf.team1.name) : 'Winners Bracket Champion'}</span>
-            <span>${gf.score1 != null ? gf.score1 : ''}</span>
-          </div>
-          <div style="font-size:11px;color:#aaa;text-align:center;margin:4px 0">vs</div>
-          <div class="gf-team ${t2win ? 'winner' : ''}">
-            <span>${gf.team2 ? esc(gf.team2.name) : 'Consolation Bracket Champion'}</span>
-            <span>${gf.score2 != null ? gf.score2 : ''}</span>
-          </div>
+          <div class="gf-title">🏆 Winners Bracket Champion</div>
+          ${wbChamp
+            ? `<div class="champion-name" style="font-size:20px;margin-top:4px">${esc(wbChamp.name)}</div>`
+            : `<div style="color:#aaa;font-size:14px;margin-top:4px">TBD — bracket in progress</div>`}
         </div>
-        ${champion ? `<div class="champion">
-          <div class="champion-label">🥇 Tournament Champion</div>
-          <div class="champion-name">${esc(champion.name)}</div>
-        </div>` : ''}
+        <div class="gf-card" style="margin-top:1rem">
+          <div class="gf-title" style="color:#3a8fc1">🥈 Consolation Champion</div>
+          ${lbChamp
+            ? `<div class="champion-name" style="font-size:20px;margin-top:4px">${esc(lbChamp.name)}</div>`
+            : `<div style="color:#aaa;font-size:14px;margin-top:4px">TBD — bracket in progress</div>`}
+        </div>
       </div>`
     }
 
@@ -214,7 +210,7 @@
       const matches = await res.json()
       document.getElementById('winnersBracket').innerHTML = renderBracket(matches, 'W')
       document.getElementById('losersBracket').innerHTML = renderBracket(matches, 'L')
-      document.getElementById('gfSection').innerHTML = renderGF(matches)
+      document.getElementById('championsSection').innerHTML = renderChampions(matches)
       document.getElementById('refreshNote').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
     }
 
