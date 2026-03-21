@@ -15,8 +15,10 @@ function buildMatchStructure(bracketSize) {
   let id = 1
 
   const WB_ROUNDS = Math.log2(bracketSize)
-  // Consolation = simple single-elimination of WB R1 losers, narrows each round
-  const LB_ROUNDS = WB_ROUNDS - 1
+  // True double elimination: every WB loser drops to consolation.
+  // LB has paired rounds: odd rounds receive WB drop-ins + previous LB survivors,
+  // even rounds are LB-only. Total LB rounds = 2*(WB_ROUNDS-1).
+  const LB_ROUNDS = 2 * (WB_ROUNDS - 1)
 
   // Pre-assign IDs for WB
   const wb = {}
@@ -26,12 +28,13 @@ function buildMatchStructure(bracketSize) {
     for (let p = 0; p < count; p++) wb[r][p] = id++
   }
 
-  // Pre-assign IDs for LB (single elimination, halves each round)
-  // LB Rr has bracketSize / 2^(r+1) matches
+  // Pre-assign IDs for LB.
+  // LB Rr has bracketSize / 2^(ceil(r/2)+1) matches.
+  // Paired rounds (r and r+1) have the same match count; count halves every two rounds.
   const lb = {}
   for (let r = 1; r <= LB_ROUNDS; r++) {
     lb[r] = {}
-    const count = bracketSize / Math.pow(2, r + 1)
+    const count = bracketSize / Math.pow(2, Math.ceil(r / 2) + 1)
     for (let p = 0; p < count; p++) lb[r][p] = id++
   }
 
@@ -42,11 +45,21 @@ function buildMatchStructure(bracketSize) {
       const next_match_id = r < WB_ROUNDS ? wb[r + 1][Math.floor(p / 2)] : null
       const next_slot = r < WB_ROUNDS ? (p % 2) + 1 : null
 
-      // Only WB R1 losers go to consolation
+      // All WB losers drop into consolation:
+      //   WB R1 losers  → LB R1  (fill both slots, paired by position)
+      //   WB Rr losers (r≥2) → LB R(2*(r-1))  (always slot 2; slot 1 comes from previous LB round)
       let loser_next_match_id = null, loser_next_slot = null
-      if (r === 1 && LB_ROUNDS > 0) {
-        loser_next_match_id = lb[1][Math.floor(p / 2)]
-        loser_next_slot = (p % 2) + 1
+      if (LB_ROUNDS > 0) {
+        if (r === 1) {
+          loser_next_match_id = lb[1][Math.floor(p / 2)]
+          loser_next_slot = (p % 2) + 1
+        } else {
+          const lbDropRound = 2 * (r - 1)
+          if (lbDropRound <= LB_ROUNDS) {
+            loser_next_match_id = lb[lbDropRound][p]
+            loser_next_slot = 2
+          }
+        }
       }
 
       matches.push({
@@ -58,12 +71,23 @@ function buildMatchStructure(bracketSize) {
     }
   }
 
-  // Generate LB matches (simple single elimination)
+  // Generate LB matches
   for (let r = 1; r <= LB_ROUNDS; r++) {
-    const count = bracketSize / Math.pow(2, r + 1)
+    const count = bracketSize / Math.pow(2, Math.ceil(r / 2) + 1)
     for (let p = 0; p < count; p++) {
-      const next_match_id = r < LB_ROUNDS ? lb[r + 1][Math.floor(p / 2)] : null
-      const next_slot = r < LB_ROUNDS ? (p % 2) + 1 : null
+      let next_match_id = null, next_slot = null
+      const nextR = r + 1
+      if (nextR <= LB_ROUNDS) {
+        if (r % 2 === 1) {
+          // Odd → even: winner goes to same position in next round, slot 1
+          next_match_id = lb[nextR][p]
+          next_slot = 1
+        } else {
+          // Even → odd: match count halves, pairs collapse
+          next_match_id = lb[nextR][Math.floor(p / 2)]
+          next_slot = (p % 2) + 1
+        }
+      }
       matches.push({
         id: lb[r][p], bracket: 'L', round: r, position: p,
         team1_id: null, team2_id: null, score1: null, score2: null, winner_id: null,

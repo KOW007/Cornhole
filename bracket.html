@@ -164,11 +164,10 @@
         </div>`
     }
 
-    function getLBLabel(r, lbRounds, bracketSize) {
+    function getLBLabel(r, lbRounds) {
       if (r === lbRounds) return 'Consolation Final'
       if (r === lbRounds - 1) return 'Consolation Semis'
-      const teams = bracketSize / Math.pow(2, r)
-      return `Consolation Round of ${teams}`
+      return `Consolation Round ${r}`
     }
 
     function renderBracket(matches, bracket) {
@@ -194,9 +193,11 @@
         const totalTeams = bracketSize / Math.pow(2, r - 1)
         const label = bracket === 'W'
           ? (totalTeams === 2 ? 'Main Bracket Final' : totalTeams === 4 ? 'Semifinals' : totalTeams === 8 ? 'Quarterfinals' : `Round of ${totalTeams}`)
-          : getLBLabel(r, lbRounds, bracketSize)
+          : getLBLabel(r, lbRounds)
 
-        const wrapperHeight = Math.pow(2, r - 1) * BASE_HEIGHT
+        const wrapperHeight = bracket === 'W'
+          ? Math.pow(2, r - 1) * BASE_HEIGHT
+          : Math.pow(2, Math.ceil(r / 2) - 1) * BASE_HEIGHT
 
         return `
           <div class="round-col">
