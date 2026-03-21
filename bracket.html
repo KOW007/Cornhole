@@ -197,7 +197,7 @@
 
         const wrapperHeight = bracket === 'W'
           ? Math.pow(2, r - 1) * BASE_HEIGHT
-          : Math.pow(2, Math.ceil(r / 2) - 1) * BASE_HEIGHT
+          : Math.pow(2, r - 1) * BASE_HEIGHT
 
         return `
           <div class="round-col">
