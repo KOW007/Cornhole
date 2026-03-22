@@ -246,9 +246,19 @@ module.exports = async function handler(req, res) {
     }
 
     if (match.bracket === 'W' && match.loser_next_match_id && loser_id) {
-      const slot = match.loser_next_slot === 1 ? 'team1_id' : 'team2_id'
-      await supabase.from('ct_matches')
-        .update({ [slot]: loser_id }).eq('id', match.loser_next_match_id)
+      // Only send to consolation if this is the loser's first real match loss.
+      // A prior real win means they've already had their second chance (guaranteed 2 matches).
+      const { data: priorWins } = await supabase
+        .from('ct_matches')
+        .select('id')
+        .eq('winner_id', loser_id)
+        .eq('is_bye', false)
+      const isFirstRealLoss = !priorWins || priorWins.length === 0
+      if (isFirstRealLoss) {
+        const slot = match.loser_next_slot === 1 ? 'team1_id' : 'team2_id'
+        await supabase.from('ct_matches')
+          .update({ [slot]: loser_id }).eq('id', match.loser_next_match_id)
+      }
     }
 
     // Propagate any bye wins that are now unblocked
