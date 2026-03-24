@@ -286,13 +286,15 @@
       const btn = document.getElementById('createBtn')
       const msg = document.getElementById('bracketMsg')
       btn.disabled = true; msg.textContent = ''
-      const res = await fetch('/api/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }
-      })
-      const data = await res.json()
-      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; btn.disabled = false }
-      else { showTab('view-bracket') }
+      try {
+        const res = await fetch('/api/matches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }
+        })
+        const data = await res.json()
+        if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; btn.disabled = false }
+        else { showTab('view-bracket') }
+      } catch (e) { msg.className = 'msg error'; msg.textContent = 'Network error: ' + e.message; btn.disabled = false }
     }
 
     async function resetBracket() {
