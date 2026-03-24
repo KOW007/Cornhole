@@ -5,6 +5,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+const T = process.env.TABLE_PREFIX || 'ct'
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -18,11 +20,14 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
 
   const { data: teams, error } = await supabase
-    .from('ct_teams').select('id, name, phone, partner_status')
+    .from(`${T}_teams`).select('id, name, phone, partner_status')
   if (error) return res.status(500).json({ error: error.message })
 
-  const venmoLink = 'https://venmo.com/katherine-wallin-1?txn=pay&amount=40&note=SAS%20Cornhole%20Tournament%202026'
-  const message = `Hi! You're registered for the SAS Cornhole Tournament 2026. Entry fee is $40/team ($20/person). Please pay via Venmo: ${venmoLink}`
+  const eventName   = process.env.EVENT_NAME    || 'Tournament'
+  const venmoHandle = process.env.VENMO_HANDLE  || ''
+  const entryFee    = parseInt(process.env.ENTRY_FEE || '0')
+  const venmoLink   = `https://venmo.com/${venmoHandle}?txn=pay&amount=${entryFee}&note=${encodeURIComponent(eventName)}`
+  const message     = `Hi! You're registered for the ${eventName}. Entry fee is $${entryFee}/team ($${Math.round(entryFee / 2)}/person). Please pay via Venmo: ${venmoLink}`
 
   const sid = process.env.TWILIO_SID
   const token = process.env.TWILIO_AUTH_TOKEN

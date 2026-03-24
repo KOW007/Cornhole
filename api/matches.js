@@ -5,6 +5,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+const T = process.env.TABLE_PREFIX || 'ct'
+
 function getBracketSize(teamCount) {
   const sizes = [8, 16, 32, 64, 128]
   return sizes.find(s => s >= teamCount) || 128
@@ -131,7 +133,7 @@ function assignTeams(matches, teams, bracketSize) {
 
 async function propagateByes() {
   for (let pass = 0; pass < 20; pass++) {
-    const { data: allMatches } = await supabase.from('ct_matches').select('*')
+    const { data: allMatches } = await supabase.from(`${T}_matches`).select('*')
     if (!allMatches) break
     const matchMap = Object.fromEntries(allMatches.map(m => [m.id, { ...m }]))
     let changed = false
@@ -143,7 +145,7 @@ async function propagateByes() {
       if (!next || next.status === 'complete') continue
       const slotField = m.next_slot === 1 ? 'team1_id' : 'team2_id'
       if (!next[slotField]) {
-        await supabase.from('ct_matches').update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
+        await supabase.from(`${T}_matches`).update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
         next[slotField] = m.winner_id
         changed = true
       }
@@ -167,7 +169,7 @@ async function propagateByes() {
 
       if (slot1Settled && slot2Settled) {
         const winnerId = next.team1_id || next.team2_id || null
-        await supabase.from('ct_matches').update({
+        await supabase.from(`${T}_matches`).update({
           winner_id: winnerId, status: 'complete', is_bye: true
         }).eq('id', next.id)
         next.winner_id = winnerId
@@ -189,7 +191,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     const { data, error } = await supabase
-      .from('ct_matches')
+      .from(`${T}_matches`)
       .select(`*, team1:team1_id(id,name,player1,player2), team2:team2_id(id,name,player1,player2), winner:winner_id(id,name)`)
       .order('bracket').order('round').order('position')
     if (error) return res.status(500).json({ error: error.message })
@@ -201,21 +203,21 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { data: teams, error: te } = await supabase
-      .from('ct_teams').select('*').order('registered_at')
+      .from(`${T}_teams`).select('*').order('registered_at')
     if (te) return res.status(500).json({ error: te.message })
     if (teams.length < 2) return res.status(400).json({ error: 'Need at least 2 teams.' })
 
     const bracketSize = getBracketSize(teams.length)
 
-    await supabase.from('ct_matches').delete().gte('id', 0)
+    await supabase.from(`${T}_matches`).delete().gte('id', 0)
 
     let matches = buildMatchStructure(bracketSize)
     matches = assignTeams(matches, teams, bracketSize)
 
-    const { error: ie } = await supabase.from('ct_matches').insert(matches)
+    const { error: ie } = await supabase.from(`${T}_matches`).insert(matches)
     if (ie) return res.status(500).json({ error: ie.message })
 
-    await supabase.from('ct_settings').upsert({ key: 'bracket_created', value: 'true' })
+    await supabase.from(`${T}_settings`).upsert({ key: 'bracket_created', value: 'true' })
     return res.json({ success: true, matchCount: matches.length })
   }
 
@@ -227,7 +229,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Scores cannot be tied.' })
 
     const { data: match, error: me } = await supabase
-      .from('ct_matches').select('*').eq('id', match_id).single()
+      .from(`${T}_matches`).select('*').eq('id', match_id).single()
     if (me || !match) return res.status(404).json({ error: 'Match not found' })
     if (!match.team1_id || !match.team2_id)
       return res.status(400).json({ error: 'Match does not have two teams yet.' })
@@ -235,13 +237,13 @@ module.exports = async function handler(req, res) {
     const winner_id = score1 > score2 ? match.team1_id : match.team2_id
     const loser_id = score1 > score2 ? match.team2_id : match.team1_id
 
-    await supabase.from('ct_matches')
+    await supabase.from(`${T}_matches`)
       .update({ score1, score2, winner_id, status: 'complete' })
       .eq('id', match_id)
 
     if (match.next_match_id && winner_id) {
       const slot = match.next_slot === 1 ? 'team1_id' : 'team2_id'
-      await supabase.from('ct_matches')
+      await supabase.from(`${T}_matches`)
         .update({ [slot]: winner_id }).eq('id', match.next_match_id)
     }
 
@@ -249,14 +251,14 @@ module.exports = async function handler(req, res) {
       // Only send to consolation if this is the loser's first real match loss.
       // A prior real win means they've already had their second chance (guaranteed 2 matches).
       const { data: priorWins } = await supabase
-        .from('ct_matches')
+        .from(`${T}_matches`)
         .select('id')
         .eq('winner_id', loser_id)
         .eq('is_bye', false)
       const isFirstRealLoss = !priorWins || priorWins.length === 0
       if (isFirstRealLoss) {
         const slot = match.loser_next_slot === 1 ? 'team1_id' : 'team2_id'
-        await supabase.from('ct_matches')
+        await supabase.from(`${T}_matches`)
           .update({ [slot]: loser_id }).eq('id', match.loser_next_match_id)
       }
     }
@@ -268,8 +270,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    await supabase.from('ct_matches').delete().gte('id', 0)
-    await supabase.from('ct_settings').upsert({ key: 'bracket_created', value: 'false' })
+    await supabase.from(`${T}_matches`).delete().gte('id', 0)
+    await supabase.from(`${T}_settings`).upsert({ key: 'bracket_created', value: 'false' })
     return res.json({ success: true })
   }
 

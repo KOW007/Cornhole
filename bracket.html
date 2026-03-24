@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bracket — SAS Cornhole Tournament 2026</title>
   <style>
+    :root { --accent: #3a8fc1; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f0f4f8; color: #0f0f0f; }
     header { background: #0f0f0f; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
@@ -15,7 +16,7 @@
 
     .tabs { display: flex; gap: 0; border-bottom: 2px solid #ddd; background: white; padding: 0 2rem; }
     .tab { padding: 14px 24px; font-size: 14px; font-weight: 600; cursor: pointer; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; }
-    .tab.active { color: #0f0f0f; border-bottom-color: #3a8fc1; }
+    .tab.active { color: #0f0f0f; border-bottom-color: var(--accent); }
 
     .bracket-panel { display: none; overflow-x: auto; padding: 1.5rem; }
     .bracket-panel.active { display: block; }
@@ -32,7 +33,7 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .match-card.clickable { cursor: pointer; }
-    .match-card.clickable:hover { border-color: #3a8fc1; box-shadow: 0 2px 8px rgba(58,143,193,0.25); }
+    .match-card.clickable:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(58,143,193,0.25); }
     .match-team {
       padding: 6px 10px; font-size: 12px; display: flex;
       justify-content: space-between; align-items: center;
@@ -49,8 +50,8 @@
     .connector-line { width: 20px; height: 1px; background: #ccc; }
 
     .gf-wrapper { padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-    .gf-card { background: white; border: 2px solid #3a8fc1; border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; box-shadow: 0 2px 8px rgba(58,143,193,0.2); }
-    .gf-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #3a8fc1; margin-bottom: 1rem; }
+    .gf-card { background: white; border: 2px solid var(--accent); border-radius: 12px; padding: 1.5rem; min-width: 250px; text-align: center; box-shadow: 0 2px 8px rgba(58,143,193,0.2); }
+    .gf-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 1rem; }
     .champion-name { font-size: 22px; font-weight: 800; color: #1a1a18; margin-top: 8px; }
 
     .empty-bracket { text-align: center; padding: 4rem; color: #aaa; font-size: 15px; }
@@ -65,12 +66,12 @@
     .modal-team { text-align: center; }
     .modal-team-name { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
     .modal-score-input { width: 100%; text-align: center; font-size: 28px; font-weight: 700; padding: 10px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
-    .modal-score-input:focus { border-color: #3a8fc1; }
+    .modal-score-input:focus { border-color: var(--accent); }
     .modal-vs { font-size: 18px; font-weight: 700; color: #aaa; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
     .modal-msg { font-size: 13px; color: #c0392b; min-height: 18px; margin-top: 8px; }
     .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
-    .btn-primary { background: #3a8fc1; color: white; }
+    .btn-primary { background: var(--accent); color: white; }
     .btn-primary:hover { background: #2a7aaa; }
     .btn-secondary { background: #f0f0f0; color: #555; }
     .btn-secondary:hover { background: #e0e0e0; }
@@ -78,7 +79,7 @@
 </head>
 <body>
   <header>
-    <h1><img src="/SAS_CORNHOLE_26_logo.png" alt="SAS Cornhole Tournament" />SAS Cornhole Tournament 2026</h1>
+    <h1><img id="eventLogo" src="/SAS_CORNHOLE_26_logo.png" alt="" /><span id="eventName">SAS Cornhole Tournament 2026</span></h1>
     <nav>
       <a href="/">Register</a>
       <a href="/bracket.html">Bracket</a>
@@ -128,6 +129,20 @@
   <script>
     const adminMode = new URLSearchParams(location.search).get('mode') === 'admin'
       || !!sessionStorage.getItem('adminPw')
+
+    async function applyConfig() {
+      try {
+        const cfg = await fetch('/api/config').then(r => r.json())
+        document.title = cfg.eventName
+        document.getElementById('eventName').textContent = cfg.eventName
+        if (cfg.logo) {
+          const img = document.getElementById('eventLogo')
+          img.src = cfg.logo
+          img.style.display = ''
+        }
+        if (cfg.accentColor) document.documentElement.style.setProperty('--accent', cfg.accentColor)
+      } catch (e) {}
+    }
 
     let currentMatches = []
     let currentMatchId = null
@@ -221,7 +236,7 @@
             : `<div style="color:#aaa;font-size:14px;margin-top:4px">TBD — bracket in progress</div>`}
         </div>
         <div class="gf-card" style="margin-top:1rem">
-          <div class="gf-title" style="color:#3a8fc1">🥈 Consolation Champion</div>
+          <div class="gf-title" style="color:var(--accent)">🥈 Consolation Champion</div>
           ${lbChamp
             ? `<div class="champion-name" style="font-size:20px;margin-top:4px">${esc(lbChamp.name)}</div>`
             : `<div style="color:#aaa;font-size:14px;margin-top:4px">TBD — bracket in progress</div>`}
@@ -276,6 +291,7 @@
       document.getElementById('refreshNote').textContent = 'Last updated: ' + new Date().toLocaleTimeString()
     }
 
+    applyConfig()
     load()
     setInterval(load, 30000)
   </script>
