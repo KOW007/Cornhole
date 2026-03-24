@@ -164,6 +164,18 @@
 
     applyConfig()
 
+    // Auto-login if password is already in sessionStorage
+    ;(async () => {
+      const saved = sessionStorage.getItem('adminPw')
+      if (!saved) return
+      const res = await fetch('/api/matches', { headers: { 'x-admin-password': saved } })
+      if (res.status === 401) { sessionStorage.removeItem('adminPw'); return }
+      adminPw = saved
+      document.getElementById('loginWrap').style.display = 'none'
+      document.getElementById('adminPanel').style.display = 'block'
+      loadAll()
+    })()
+
     async function login() {
       const pw = document.getElementById('pwInput').value
       const res = await fetch('/api/matches', { headers: { 'x-admin-password': pw } })
@@ -181,11 +193,15 @@
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
         t.classList.toggle('active', ['teams','notify','bracket','scores','view-bracket'][i] === name)
-      if (name === 'scores') loadScores()
       })
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
       if (name === 'bracket') updateBracketSizeNote()
+      if (name === 'scores') loadScores()
+      if (name === 'view-bracket') {
+        const iframe = document.querySelector('#panel-view-bracket iframe')
+        iframe.src = iframe.src  // force reload
+      }
     }
 
     function getBracketSize(count) {
