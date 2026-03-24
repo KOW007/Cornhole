@@ -291,10 +291,8 @@
         headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw }
       })
       const data = await res.json()
-      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error }
-      else { msg.className = 'msg success'; msg.textContent = `✓ Bracket created with ${data.matchCount} matches!` }
-      btn.disabled = false
-      loadMatches()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; btn.disabled = false }
+      else { showTab('view-bracket') }
     }
 
     async function resetBracket() {
