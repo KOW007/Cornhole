@@ -256,7 +256,7 @@
           const noteText = `${data.name} (${players})` + (numShirts ? ` + ${numShirts} shirt${numShirts > 1 ? 's' : ''}` : '') + ' - Cornhole'
           const note = encodeURIComponent(noteText)
           const handle = venmoHandle.replace(/^@/, '')
-          const venmoUrl = handle ? `https://venmo.com/@${handle}` : null
+          const venmoUrl = handle ? `https://venmo.com/${handle}?txn=pay&amount=${total}&note=${note}` : null
           const breakdown = [
             `${numPlayers} player${numPlayers > 1 ? 's' : ''} × $${ENTRY_FEE} = $${numPlayers * ENTRY_FEE}`,
             numShirts ? `${numShirts} shirt${numShirts > 1 ? 's' : ''} × $${SHIRT_FEE} = $${numShirts * SHIRT_FEE}` : null
@@ -264,7 +264,7 @@
           msg.className = 'msg success'
           msg.innerHTML = `✓ "${esc(data.name)}" registered!<br>
             <span style="font-size:12px;color:#555;display:block;margin-top:6px">${breakdown}<br><strong>Total: $${total}</strong></span>
-            ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay on Venmo →</a><span style="font-size:11px;color:#888;display:block;margin-top:4px">Send $${total} to @${handle} with note: ${esc(noteText)}</span>` : ''}`
+            ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay $${total} via Venmo</a>` : ''}`
           document.getElementById('teamName').value = ''
           document.getElementById('player1').value = ''
           document.getElementById('shirt1').value = ''
