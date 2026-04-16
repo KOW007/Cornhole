@@ -255,8 +255,9 @@
           const players = [p1, p2].filter(Boolean).join(' & ')
           const noteText = `${data.name} (${players})` + (numShirts ? ` + ${numShirts} shirt${numShirts > 1 ? 's' : ''}` : '') + ' - Cornhole'
           const note = encodeURIComponent(noteText)
-          const venmoUrl = venmoHandle
-            ? `https://venmo.com/${venmoHandle}?txn=pay&amount=${total}&note=${note}`
+          const handle = venmoHandle.replace(/^@/, '')
+          const venmoUrl = handle
+            ? `https://account.venmo.com/payment-link?audience=friends&recipients=${handle}&amount=${total}&note=${note}`
             : null
           const breakdown = [
             `${numPlayers} player${numPlayers > 1 ? 's' : ''} × $${ENTRY_FEE} = $${numPlayers * ENTRY_FEE}`,
