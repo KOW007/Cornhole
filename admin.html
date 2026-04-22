@@ -85,6 +85,7 @@
       <div class="tab" onclick="showTab('bracket')">Create Bracket</div>
       <div class="tab" onclick="showTab('scores')">View Scores</div>
       <div class="tab" onclick="showTab('view-bracket')">View Bracket</div>
+      <div class="tab" onclick="showTab('raffle')">Raffle</div>
     </div>
 
     <!-- Teams panel -->
@@ -142,6 +143,11 @@
         <div id="scoresTable">Loading...</div>
       </div>
     </div>
+
+    <!-- Raffle panel -->
+    <div class="panel" id="panel-raffle">
+      <div id="rafflePanelContent">Loading...</div>
+    </div>
   </div>
 
   <script>
@@ -197,15 +203,67 @@
 
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['teams','notify','bracket','scores','view-bracket'][i] === name)
+        t.classList.toggle('active', ['teams','notify','bracket','scores','view-bracket','raffle'][i] === name)
       })
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
       if (name === 'bracket') updateBracketSizeNote()
       if (name === 'scores') loadScores()
+      if (name === 'raffle') loadRaffle()
       if (name === 'view-bracket') {
         const iframe = document.querySelector('#panel-view-bracket iframe')
         iframe.src = iframe.src  // force reload
+      }
+    }
+
+    const RAFFLE_PRIZES = [
+      { id: 'uchiko',       name: '$150 Uchiko Gift Card' },
+      { id: 'roka',         name: 'Pair of Roka Sunglasses' },
+      { id: 'milk_cookies', name: '$100 Milk & Cookies Gift Card' },
+      { id: 'revitalash',   name: 'Westlake Dermatology RevitaLash Serum & Mascara' },
+    ]
+
+    async function loadRaffle() {
+      const div = document.getElementById('rafflePanelContent')
+      div.innerHTML = 'Loading...'
+      try {
+        const res = await fetch('/api/raffle', { headers: { 'x-admin-password': adminPw } })
+        const data = await res.json()
+        if (!res.ok) { div.innerHTML = `<p style="color:#c0392b">${esc(data.error)}</p>`; return }
+
+        const { entries, totals } = data
+        if (!entries.length) {
+          div.innerHTML = '<div class="card"><p style="color:#aaa;font-size:14px">No raffle entries yet.</p></div>'
+          return
+        }
+
+        div.innerHTML = RAFFLE_PRIZES.map(prize => {
+          const ticketTotal = totals[prize.id] || 0
+          const rows = entries
+            .filter(e => (e.allocations?.[prize.id] || 0) > 0)
+            .sort((a, b) => (b.allocations[prize.id] || 0) - (a.allocations[prize.id] || 0))
+
+          const rowsHtml = rows.length
+            ? `<table style="margin-top:1rem">
+                <thead><tr><th>Name</th><th>Phone</th><th style="text-align:right">Tickets</th></tr></thead>
+                <tbody>${rows.map(e => `<tr>
+                  <td>${esc(e.name)}</td>
+                  <td style="color:#888">${esc(e.phone)}</td>
+                  <td style="text-align:right;font-weight:700">${e.allocations[prize.id]}</td>
+                </tr>`).join('')}</tbody>
+              </table>`
+            : '<p style="color:#aaa;font-size:13px;margin-top:8px">No tickets yet.</p>'
+
+          return `<div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h2 style="font-size:16px;margin-bottom:0">${esc(prize.name)}</h2>
+              <span style="font-size:13px;font-weight:600;color:var(--accent)">${ticketTotal} ticket${ticketTotal !== 1 ? 's' : ''}</span>
+            </div>
+            ${rowsHtml}
+          </div>`
+        }).join('')
+      } catch (e) {
+        div.innerHTML = '<p style="color:#c0392b">Failed to load raffle data.</p>'
       }
     }
 

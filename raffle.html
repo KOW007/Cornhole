@@ -17,24 +17,34 @@
     h2 { font-size: 20px; font-weight: 700; color: #0f0f0f; margin-bottom: 1.25rem; }
     .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 1.5rem; margin-bottom: 1.5rem; }
 
-    .prize-list { display: flex; flex-direction: column; gap: 10px; }
-    .prize-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #eee; border-radius: 10px; }
-    .prize-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-    .prize-name { font-size: 14px; font-weight: 600; }
-
+    /* Ticket purchase */
     .ticket-options { display: flex; flex-direction: column; gap: 10px; }
     .ticket-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #eee; border-radius: 10px; }
     .ticket-label { font-size: 14px; font-weight: 600; }
     .ticket-price { font-size: 12px; color: #888; margin-top: 2px; }
     .ticket-counter { display: flex; align-items: center; gap: 14px; }
     .counter-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd; background: white; font-size: 20px; line-height: 1; cursor: pointer; font-weight: 600; color: #555; display: flex; align-items: center; justify-content: center; }
-    .counter-btn:hover { background: #f0f0f0; }
+    .counter-btn:hover:not(:disabled) { background: #f0f0f0; }
+    .counter-btn:disabled { color: #ccc; cursor: default; }
     .counter-val { font-size: 16px; font-weight: 700; min-width: 20px; text-align: center; }
-
     .total-bar { background: #f0f4f8; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
     .total-label { font-size: 13px; color: #555; }
     .total-val { font-size: 20px; font-weight: 700; }
 
+    /* Prize allocation */
+    .prize-rows { display: flex; flex-direction: column; gap: 10px; }
+    .prize-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #eee; border-radius: 10px; }
+    .prize-info { flex: 1; min-width: 0; }
+    .prize-name { font-size: 14px; font-weight: 600; }
+    .prize-tally { font-size: 12px; color: #888; margin-top: 3px; }
+    .alloc-counter { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .alloc-val { font-size: 16px; font-weight: 700; min-width: 20px; text-align: center; }
+    .remaining-bar { background: #f0f4f8; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; color: #555; }
+    .remaining-val { font-weight: 700; font-size: 15px; }
+    .remaining-val.done { color: #2d7a2d; }
+    .remaining-val.over { color: #c0392b; }
+
+    /* Form */
     label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
     input { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
     input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(58,143,193,0.15); }
@@ -60,16 +70,7 @@
   </header>
 
   <div class="page">
-    <div class="card">
-      <h2>Raffle Prizes</h2>
-      <div class="prize-list">
-        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">$150 Uchiko Gift Card</div></div>
-        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">Pair of Roka Sunglasses</div></div>
-        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">$100 Milk &amp; Cookies Gift Card</div></div>
-        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">Westlake Dermatology RevitaLash Serum &amp; Mascara</div></div>
-      </div>
-    </div>
-
+    <!-- Step 1: Buy tickets -->
     <div class="card">
       <h2>Buy Tickets</h2>
       <div class="ticket-options">
@@ -79,9 +80,9 @@
             <div class="ticket-price">$5 each</div>
           </div>
           <div class="ticket-counter">
-            <button class="counter-btn" onclick="adjust('single', -1)">&#8722;</button>
+            <button class="counter-btn" onclick="adjustPurchase('single', -1)">&#8722;</button>
             <span class="counter-val" id="single-count">0</span>
-            <button class="counter-btn" onclick="adjust('single', 1)">+</button>
+            <button class="counter-btn" onclick="adjustPurchase('single', 1)">+</button>
           </div>
         </div>
         <div class="ticket-row">
@@ -90,19 +91,30 @@
             <div class="ticket-price">$20 per bundle &mdash; save $5</div>
           </div>
           <div class="ticket-counter">
-            <button class="counter-btn" onclick="adjust('bundle', -1)">&#8722;</button>
+            <button class="counter-btn" onclick="adjustPurchase('bundle', -1)">&#8722;</button>
             <span class="counter-val" id="bundle-count">0</span>
-            <button class="counter-btn" onclick="adjust('bundle', 1)">+</button>
+            <button class="counter-btn" onclick="adjustPurchase('bundle', 1)">+</button>
           </div>
         </div>
       </div>
       <div class="total-bar">
-        <span class="total-label"><span id="total-tickets">0</span> tickets selected</span>
+        <span class="total-label"><span id="total-tickets">0</span> tickets</span>
         <span class="total-val">$<span id="total-amount">0</span></span>
       </div>
     </div>
 
-    <div class="card">
+    <!-- Step 2: Allocate tickets to prizes -->
+    <div class="card" id="allocCard" style="display:none">
+      <h2>Allocate Your Tickets</h2>
+      <div class="prize-rows" id="prizeRows"></div>
+      <div class="remaining-bar">
+        <span>Tickets remaining to allocate</span>
+        <span class="remaining-val" id="remaining-val">0</span>
+      </div>
+    </div>
+
+    <!-- Step 3: Your info -->
+    <div class="card" id="infoCard" style="display:none">
       <h2>Your Info</h2>
       <div class="form-row">
         <label>Full Name</label>
@@ -118,18 +130,78 @@
   </div>
 
   <script>
+    const PRIZES = [
+      { id: 'uchiko',       name: '$150 Uchiko Gift Card' },
+      { id: 'roka',         name: 'Pair of Roka Sunglasses' },
+      { id: 'milk_cookies', name: '$100 Milk &amp; Cookies Gift Card' },
+      { id: 'revitalash',   name: 'Westlake Dermatology RevitaLash Serum &amp; Mascara' },
+    ]
+
     let singles = 0
     let bundles = 0
+    let alloc = Object.fromEntries(PRIZES.map(p => [p.id, 0]))
+    let liveTotals = Object.fromEntries(PRIZES.map(p => [p.id, 0]))
 
-    function adjust(type, delta) {
+    function totalTickets() { return singles + bundles * 5 }
+    function totalAmount()  { return singles * 5 + bundles * 20 }
+    function allocTotal()   { return PRIZES.reduce((s, p) => s + alloc[p.id], 0) }
+    function remaining()    { return totalTickets() - allocTotal() }
+
+    function adjustPurchase(type, delta) {
       if (type === 'single') singles = Math.max(0, singles + delta)
       else bundles = Math.max(0, bundles + delta)
-      const tickets = singles + bundles * 5
-      const amount = singles * 5 + bundles * 20
+
+      // Trim allocations if total tickets decreased
+      let excess = allocTotal() - totalTickets()
+      for (let i = PRIZES.length - 1; i >= 0 && excess > 0; i--) {
+        const cut = Math.min(alloc[PRIZES[i].id], excess)
+        alloc[PRIZES[i].id] -= cut
+        excess -= cut
+      }
+
       document.getElementById('single-count').textContent = singles
       document.getElementById('bundle-count').textContent = bundles
-      document.getElementById('total-tickets').textContent = tickets
-      document.getElementById('total-amount').textContent = amount
+      document.getElementById('total-tickets').textContent = totalTickets()
+      document.getElementById('total-amount').textContent = totalAmount()
+
+      const show = totalTickets() > 0
+      document.getElementById('allocCard').style.display = show ? '' : 'none'
+      document.getElementById('infoCard').style.display  = show ? '' : 'none'
+      renderPrizeRows()
+      updateRemaining()
+    }
+
+    function adjustAlloc(prizeId, delta) {
+      const newVal = alloc[prizeId] + delta
+      if (newVal < 0) return
+      if (delta > 0 && remaining() <= 0) return
+      alloc[prizeId] = newVal
+      document.getElementById('alloc-val-' + prizeId).textContent = newVal
+      updateRemaining()
+    }
+
+    function updateRemaining() {
+      const r = remaining()
+      const el = document.getElementById('remaining-val')
+      el.textContent = r
+      el.className = 'remaining-val' + (r === 0 ? ' done' : '')
+    }
+
+    function renderPrizeRows() {
+      document.getElementById('prizeRows').innerHTML = PRIZES.map(p => {
+        const live = liveTotals[p.id] || 0
+        return `<div class="prize-row">
+          <div class="prize-info">
+            <div class="prize-name">${p.name}</div>
+            <div class="prize-tally" id="tally-${p.id}">${live} ticket${live !== 1 ? 's' : ''} entered so far</div>
+          </div>
+          <div class="alloc-counter">
+            <button class="counter-btn" onclick="adjustAlloc('${p.id}', -1)">&#8722;</button>
+            <span class="alloc-val" id="alloc-val-${p.id}">${alloc[p.id]}</span>
+            <button class="counter-btn" onclick="adjustAlloc('${p.id}', 1)">+</button>
+          </div>
+        </div>`
+      }).join('')
     }
 
     async function applyConfig() {
@@ -143,23 +215,39 @@
       } catch (e) {}
     }
 
+    async function loadTotals() {
+      try {
+        const data = await fetch('/api/raffle').then(r => r.json())
+        liveTotals = data.totals || {}
+        PRIZES.forEach(p => {
+          const el = document.getElementById('tally-' + p.id)
+          if (el) {
+            const n = liveTotals[p.id] || 0
+            el.textContent = `${n} ticket${n !== 1 ? 's' : ''} entered so far`
+          }
+        })
+      } catch (e) {}
+    }
+
     applyConfig()
+    loadTotals()
 
     async function submitRaffle() {
       const btn = document.getElementById('raffleBtn')
       const msg = document.getElementById('raffleMsg')
       const name = document.getElementById('raffleName').value.trim()
       const phone = document.getElementById('rafflePhone').value.trim()
-      const tickets = singles + bundles * 5
-      const amount = singles * 5 + bundles * 20
+      const tickets = totalTickets()
+      const amount  = totalAmount()
 
-      if (!name) { msg.className = 'msg error'; msg.textContent = 'Please enter your name.'; return }
+      if (!name)  { msg.className = 'msg error'; msg.textContent = 'Please enter your name.'; return }
       if (!phone) { msg.className = 'msg error'; msg.textContent = 'Please enter your phone number.'; return }
       const digits = phone.replace(/\D/g, '')
       if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) {
         msg.className = 'msg error'; msg.textContent = 'Please enter a valid 10-digit US phone number.'; return
       }
       if (tickets === 0) { msg.className = 'msg error'; msg.textContent = 'Please select at least one ticket.'; return }
+      if (remaining() !== 0) { msg.className = 'msg error'; msg.textContent = 'Please allocate all your tickets to prizes.'; return }
 
       btn.disabled = true; msg.textContent = ''
 
@@ -167,7 +255,14 @@
         const res = await fetch('/api/raffle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, phone, single_tickets: singles, bundle_tickets: bundles, total_tickets: tickets, total_amount: amount })
+          body: JSON.stringify({
+            name, phone,
+            single_tickets: singles,
+            bundle_tickets: bundles,
+            total_tickets: tickets,
+            total_amount: amount,
+            allocations: alloc
+          })
         })
         const data = await res.json()
         if (!res.ok) {
@@ -180,10 +275,19 @@
           msg.className = 'msg success'
           msg.innerHTML = `&#10003; You&#39;re in! ${tickets} ticket${tickets !== 1 ? 's' : ''} for $${amount}.<br>
             ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay $${amount} via Venmo</a>` : ''}`
-          document.getElementById('raffleName').value = ''
-          document.getElementById('rafflePhone').value = ''
+          // Reset form
           singles = 0; bundles = 0
-          adjust('single', 0)
+          alloc = Object.fromEntries(PRIZES.map(p => [p.id, 0]))
+          document.getElementById('single-count').textContent = 0
+          document.getElementById('bundle-count').textContent = 0
+          document.getElementById('total-tickets').textContent = 0
+          document.getElementById('total-amount').textContent = 0
+          document.getElementById('allocCard').style.display = 'none'
+          document.getElementById('infoCard').style.display  = 'none'
+          document.getElementById('raffleName').value  = ''
+          document.getElementById('rafflePhone').value = ''
+          btn.disabled = false
+          loadTotals()
         }
       } catch (e) {
         msg.className = 'msg error'; msg.textContent = 'Something went wrong. Please try again.'
