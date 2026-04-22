@@ -24,6 +24,7 @@
     .prize-preview-value { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1.1; }
     .prize-preview-name { font-size: 14px; font-weight: 700; margin: 4px 0 4px; }
     .prize-preview-sub { font-size: 12px; color: #888; }
+    .prize-preview-count { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 8px; }
 
     /* Ticket purchase */
     .ticket-options { display: flex; flex-direction: column; gap: 10px; }
@@ -86,21 +87,25 @@
           <div class="prize-preview-value">$150</div>
           <div class="prize-preview-name">Uchiko Gift Card</div>
           <div class="prize-preview-sub">Dinner for two at one of Austin's best restaurants</div>
+          <div class="prize-preview-count" id="preview-count-uchiko">— tickets</div>
         </div>
         <div class="prize-preview">
           <div class="prize-preview-value">Roka</div>
           <div class="prize-preview-name">Sunglasses</div>
           <div class="prize-preview-sub">Premium performance eyewear</div>
+          <div class="prize-preview-count" id="preview-count-roka">— tickets</div>
         </div>
         <div class="prize-preview">
           <div class="prize-preview-value">$100</div>
           <div class="prize-preview-name">Milk &amp; Cookies Gift Card</div>
           <div class="prize-preview-sub">Austin's favorite treat shop</div>
+          <div class="prize-preview-count" id="preview-count-milk_cookies">— tickets</div>
         </div>
         <div class="prize-preview">
           <div class="prize-preview-value">RevitaLash</div>
           <div class="prize-preview-name">Serum &amp; Mascara</div>
           <div class="prize-preview-sub">Westlake Dermatology exclusive set</div>
+          <div class="prize-preview-count" id="preview-count-revitalash">— tickets</div>
         </div>
       </div>
     </div>
@@ -260,11 +265,11 @@
         const data = await fetch('/api/raffle').then(r => r.json())
         liveTotals = data.totals || {}
         PRIZES.forEach(p => {
-          const el = document.getElementById('tally-' + p.id)
-          if (el) {
-            const n = liveTotals[p.id] || 0
-            el.textContent = `${n} ticket${n !== 1 ? 's' : ''} entered so far`
-          }
+          const n = liveTotals[p.id] || 0
+          const tally = document.getElementById('tally-' + p.id)
+          if (tally) tally.textContent = `${n} ticket${n !== 1 ? 's' : ''} entered so far`
+          const preview = document.getElementById('preview-count-' + p.id)
+          if (preview) preview.textContent = `${n} ticket${n !== 1 ? 's' : ''} so far`
         })
       } catch (e) {}
     }
