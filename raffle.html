@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raffle — 2026 SAS Cornhole Tournament</title>
+  <style>
+    :root { --accent: #3a8fc1; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f0f4f8; color: #0f0f0f; min-height: 100vh; }
+    header { background: #0f0f0f; color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px; }
+    header h1 img { height: 44px; width: auto; }
+    nav a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 1.5rem; }
+    nav a:hover { color: white; }
+    .page { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+    h2 { font-size: 20px; font-weight: 700; color: #0f0f0f; margin-bottom: 1.25rem; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 1.5rem; margin-bottom: 1.5rem; }
+
+    .prize-list { display: flex; flex-direction: column; gap: 10px; }
+    .prize-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #eee; border-radius: 10px; }
+    .prize-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .prize-name { font-size: 14px; font-weight: 600; }
+
+    .ticket-options { display: flex; flex-direction: column; gap: 10px; }
+    .ticket-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #eee; border-radius: 10px; }
+    .ticket-label { font-size: 14px; font-weight: 600; }
+    .ticket-price { font-size: 12px; color: #888; margin-top: 2px; }
+    .ticket-counter { display: flex; align-items: center; gap: 14px; }
+    .counter-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd; background: white; font-size: 20px; line-height: 1; cursor: pointer; font-weight: 600; color: #555; display: flex; align-items: center; justify-content: center; }
+    .counter-btn:hover { background: #f0f0f0; }
+    .counter-val { font-size: 16px; font-weight: 700; min-width: 20px; text-align: center; }
+
+    .total-bar { background: #f0f4f8; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+    .total-label { font-size: 13px; color: #555; }
+    .total-val { font-size: 20px; font-weight: 700; }
+
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    input { width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(58,143,193,0.15); }
+    .form-row { margin-bottom: 1rem; }
+    .btn { display: inline-block; padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; width: 100%; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: #2a7aaa; }
+    .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+    .msg.success { color: var(--accent); }
+    .msg.error { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><img id="eventLogo" src="/SAS_CORNHOLE_26_logo.png" alt="" /><span id="eventName">2026 SAS Cornhole Tournament</span></h1>
+    <nav>
+      <a href="/">Register</a>
+      <a href="/bracket.html">Bracket</a>
+      <a href="/raffle.html">Raffle</a>
+      <a href="/admin.html" style="font-size:11px;opacity:0.5">Admin</a>
+    </nav>
+  </header>
+
+  <div class="page">
+    <div class="card">
+      <h2>Raffle Prizes</h2>
+      <div class="prize-list">
+        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">$150 Uchiko Gift Card</div></div>
+        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">Pair of Roka Sunglasses</div></div>
+        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">$100 Milk &amp; Cookies Gift Card</div></div>
+        <div class="prize-item"><div class="prize-dot"></div><div class="prize-name">Westlake Dermatology RevitaLash Serum &amp; Mascara</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Buy Tickets</h2>
+      <div class="ticket-options">
+        <div class="ticket-row">
+          <div>
+            <div class="ticket-label">Single Ticket</div>
+            <div class="ticket-price">$5 each</div>
+          </div>
+          <div class="ticket-counter">
+            <button class="counter-btn" onclick="adjust('single', -1)">&#8722;</button>
+            <span class="counter-val" id="single-count">0</span>
+            <button class="counter-btn" onclick="adjust('single', 1)">+</button>
+          </div>
+        </div>
+        <div class="ticket-row">
+          <div>
+            <div class="ticket-label">5-Ticket Bundle</div>
+            <div class="ticket-price">$20 per bundle &mdash; save $5</div>
+          </div>
+          <div class="ticket-counter">
+            <button class="counter-btn" onclick="adjust('bundle', -1)">&#8722;</button>
+            <span class="counter-val" id="bundle-count">0</span>
+            <button class="counter-btn" onclick="adjust('bundle', 1)">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="total-bar">
+        <span class="total-label"><span id="total-tickets">0</span> tickets selected</span>
+        <span class="total-val">$<span id="total-amount">0</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your Info</h2>
+      <div class="form-row">
+        <label>Full Name</label>
+        <input id="raffleName" type="text" placeholder="First &amp; last name" maxlength="80" />
+      </div>
+      <div class="form-row">
+        <label>Phone Number</label>
+        <input id="rafflePhone" type="tel" placeholder="(512) 555-0100" maxlength="20" />
+      </div>
+      <button class="btn btn-primary" id="raffleBtn" onclick="submitRaffle()">Sign Up &amp; Pay via Venmo</button>
+      <div class="msg" id="raffleMsg"></div>
+    </div>
+  </div>
+
+  <script>
+    let singles = 0
+    let bundles = 0
+
+    function adjust(type, delta) {
+      if (type === 'single') singles = Math.max(0, singles + delta)
+      else bundles = Math.max(0, bundles + delta)
+      const tickets = singles + bundles * 5
+      const amount = singles * 5 + bundles * 20
+      document.getElementById('single-count').textContent = singles
+      document.getElementById('bundle-count').textContent = bundles
+      document.getElementById('total-tickets').textContent = tickets
+      document.getElementById('total-amount').textContent = amount
+    }
+
+    async function applyConfig() {
+      try {
+        const cfg = await fetch('/api/config').then(r => r.json())
+        document.title = 'Raffle — ' + cfg.eventName
+        document.getElementById('eventName').textContent = cfg.eventName
+        if (cfg.logo) { const img = document.getElementById('eventLogo'); img.src = cfg.logo; img.style.display = '' }
+        if (cfg.accentColor) document.documentElement.style.setProperty('--accent', cfg.accentColor)
+        window._venmoHandle = cfg.venmoHandle || ''
+      } catch (e) {}
+    }
+
+    applyConfig()
+
+    async function submitRaffle() {
+      const btn = document.getElementById('raffleBtn')
+      const msg = document.getElementById('raffleMsg')
+      const name = document.getElementById('raffleName').value.trim()
+      const phone = document.getElementById('rafflePhone').value.trim()
+      const tickets = singles + bundles * 5
+      const amount = singles * 5 + bundles * 20
+
+      if (!name) { msg.className = 'msg error'; msg.textContent = 'Please enter your name.'; return }
+      if (!phone) { msg.className = 'msg error'; msg.textContent = 'Please enter your phone number.'; return }
+      const digits = phone.replace(/\D/g, '')
+      if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) {
+        msg.className = 'msg error'; msg.textContent = 'Please enter a valid 10-digit US phone number.'; return
+      }
+      if (tickets === 0) { msg.className = 'msg error'; msg.textContent = 'Please select at least one ticket.'; return }
+
+      btn.disabled = true; msg.textContent = ''
+
+      try {
+        const res = await fetch('/api/raffle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, phone, single_tickets: singles, bundle_tickets: bundles, total_tickets: tickets, total_amount: amount })
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          msg.className = 'msg error'; msg.textContent = data.error
+          btn.disabled = false
+        } else {
+          const handle = (window._venmoHandle || '').replace(/^@/, '')
+          const note = encodeURIComponent('SAS Cornhole Raffle — ' + name)
+          const venmoUrl = handle ? `https://venmo.com/${handle}?txn=pay&amount=${amount}&note=${note}` : null
+          msg.className = 'msg success'
+          msg.innerHTML = `&#10003; You&#39;re in! ${tickets} ticket${tickets !== 1 ? 's' : ''} for $${amount}.<br>
+            ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay $${amount} via Venmo</a>` : ''}`
+          document.getElementById('raffleName').value = ''
+          document.getElementById('rafflePhone').value = ''
+          singles = 0; bundles = 0
+          adjust('single', 0)
+        }
+      } catch (e) {
+        msg.className = 'msg error'; msg.textContent = 'Something went wrong. Please try again.'
+        btn.disabled = false
+      }
+    }
+  </script>
+</body>
+</html>
