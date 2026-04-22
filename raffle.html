@@ -17,6 +17,14 @@
     h2 { font-size: 20px; font-weight: 700; color: #0f0f0f; margin-bottom: 1.25rem; }
     .card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 1.5rem; margin-bottom: 1.5rem; }
 
+    /* Prize preview grid */
+    .prize-preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 500px) { .prize-preview-grid { grid-template-columns: 1fr; } }
+    .prize-preview { background: #f0f4f8; border-radius: 10px; padding: 16px; text-align: center; }
+    .prize-preview-value { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+    .prize-preview-name { font-size: 14px; font-weight: 700; margin: 4px 0 4px; }
+    .prize-preview-sub { font-size: 12px; color: #888; }
+
     /* Ticket purchase */
     .ticket-options { display: flex; flex-direction: column; gap: 10px; }
     .ticket-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #eee; border-radius: 10px; }
@@ -70,6 +78,33 @@
   </header>
 
   <div class="page">
+    <!-- Prize preview -->
+    <div class="card">
+      <h2>Raffle Prizes</h2>
+      <div class="prize-preview-grid">
+        <div class="prize-preview">
+          <div class="prize-preview-value">$150</div>
+          <div class="prize-preview-name">Uchiko Gift Card</div>
+          <div class="prize-preview-sub">Dinner for two at one of Austin's best restaurants</div>
+        </div>
+        <div class="prize-preview">
+          <div class="prize-preview-value">Roka</div>
+          <div class="prize-preview-name">Sunglasses</div>
+          <div class="prize-preview-sub">Premium performance eyewear</div>
+        </div>
+        <div class="prize-preview">
+          <div class="prize-preview-value">$100</div>
+          <div class="prize-preview-name">Milk &amp; Cookies Gift Card</div>
+          <div class="prize-preview-sub">Austin's favorite treat shop</div>
+        </div>
+        <div class="prize-preview">
+          <div class="prize-preview-value">RevitaLash</div>
+          <div class="prize-preview-name">Serum &amp; Mascara</div>
+          <div class="prize-preview-sub">Westlake Dermatology exclusive set</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Step 1: Buy tickets -->
     <div class="card">
       <h2>Buy Tickets</h2>
@@ -126,6 +161,11 @@
       </div>
       <button class="btn btn-primary" id="raffleBtn" onclick="submitRaffle()">Sign Up &amp; Pay via Venmo</button>
       <div class="msg" id="raffleMsg"></div>
+    </div>
+
+    <!-- Success confirmation -->
+    <div class="card" id="successCard" style="display:none">
+      <div id="successMsg"></div>
     </div>
   </div>
 
@@ -272,9 +312,15 @@
           const handle = (window._venmoHandle || '').replace(/^@/, '')
           const note = encodeURIComponent('SAS Cornhole Raffle — ' + name)
           const venmoUrl = handle ? `https://venmo.com/${handle}?txn=pay&amount=${amount}&note=${note}` : null
-          msg.className = 'msg success'
-          msg.innerHTML = `&#10003; You&#39;re in! ${tickets} ticket${tickets !== 1 ? 's' : ''} for $${amount}.<br>
-            ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay $${amount} via Venmo</a>` : ''}`
+          // Show confirmation in its own card outside the form cards
+          const successCard = document.getElementById('successCard')
+          document.getElementById('successMsg').innerHTML =
+            `<p style="font-size:15px;font-weight:600;color:#2d7a2d;margin-bottom:8px">&#10003; You&#39;re in, ${name}!</p>
+            <p style="font-size:13px;color:#555;margin-bottom:12px">${tickets} ticket${tickets !== 1 ? 's' : ''} &mdash; Total: <strong>$${amount}</strong></p>
+            ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;background:#3d95ce;color:white;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none">Pay $${amount} via Venmo</a>` : ''}
+            <p style="font-size:12px;color:#aaa;margin-top:12px">Want to buy more tickets? Use the form above.</p>`
+          successCard.style.display = ''
+          successCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
           // Reset form
           singles = 0; bundles = 0
           alloc = Object.fromEntries(PRIZES.map(p => [p.id, 0]))
