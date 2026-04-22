@@ -158,7 +158,7 @@
 
   <script>
     let venmoHandle = ''
-    const ENTRY_FEE = 40
+    let ENTRY_FEE = 0
     const SHIRT_FEE = 25
 
     async function applyConfig() {
@@ -169,6 +169,7 @@
         if (cfg.logo) { const img = document.getElementById('eventLogo'); img.src = cfg.logo; img.style.display = '' }
         if (cfg.accentColor) document.documentElement.style.setProperty('--accent', cfg.accentColor)
         venmoHandle = cfg.venmoHandle || ''
+        ENTRY_FEE = cfg.entryFee || 0
       } catch (e) {}
     }
 
