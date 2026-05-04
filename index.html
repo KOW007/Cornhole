@@ -154,7 +154,7 @@
         ENTRY_FEE = cfg.entryFee || 0
         const handle = venmoHandle.replace(/^@/, '')
         const feeStr = ENTRY_FEE ? `$${ENTRY_FEE}/person` : '$25/person'
-        document.getElementById('pricingNote').textContent = feeStr + (handle ? ` — Please Venmo @${handle}` : '')
+        document.getElementById('pricingNote').innerHTML = feeStr + (handle ? ` &mdash; Please Venmo <strong>@${handle}</strong> with &ldquo;Cornhole + your name&rdquo; in the notes field` : '')
       } catch (e) {}
     }
 
