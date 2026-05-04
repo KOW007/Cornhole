@@ -63,7 +63,8 @@
       <div>
         <div class="card">
           <h2>Register Your Team</h2>
-          <p style="font-size:13px;color:#555;margin-bottom:1rem">Sunday, May 17th &bull; 2–4pm</p>
+          <p style="font-size:13px;color:#555;margin-bottom:4px">Sunday, May 17th &bull; 2–4pm</p>
+          <p id="pricingNote" style="font-size:13px;color:#555;margin-bottom:1rem"></p>
           <div id="closedBanner" class="closed-banner" style="display:none">
             Registration is closed — the tournament bracket has been created.
           </div>
@@ -151,6 +152,9 @@
         if (cfg.accentColor) document.documentElement.style.setProperty('--accent', cfg.accentColor)
         venmoHandle = cfg.venmoHandle || ''
         ENTRY_FEE = cfg.entryFee || 0
+        const handle = venmoHandle.replace(/^@/, '')
+        const feeStr = ENTRY_FEE ? `$${ENTRY_FEE}/person` : '$25/person'
+        document.getElementById('pricingNote').textContent = feeStr + (handle ? ` — Please Venmo @${handle}` : '')
       } catch (e) {}
     }
 

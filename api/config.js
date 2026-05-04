@@ -5,7 +5,7 @@ module.exports = function handler(req, res) {
     eventName:   '2026 SAS Cornhole Tournament',
     logo:        process.env.EVENT_LOGO    || '',
     accentColor: process.env.ACCENT_COLOR  || '#3a8fc1',
-    venmoHandle: process.env.VENMO_HANDLE  || '',
+    venmoHandle: process.env.VENMO_HANDLE  || 'standrewsschool',
     entryFee:    parseInt(process.env.ENTRY_FEE || '0'),
   })
 }
