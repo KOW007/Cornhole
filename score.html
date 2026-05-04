@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit Score</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: #f0f4f8; color: #0f0f0f; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #0f0f0f; color: white; padding: 0 2rem; display: flex; align-items: center; height: 60px; }
+    header h1 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    header h1 img { height: 40px; width: auto; }
+    :root { --accent: #3a8fc1; }
+    .page { max-width: 480px; margin: 0 auto; padding: 2rem 1rem; width: 100%; }
+    .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .matchup { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1.25rem 0; }
+    .team-name { font-size: 16px; font-weight: 700; text-align: center; flex: 1; }
+    .vs { font-size: 13px; font-weight: 700; color: #aaa; flex-shrink: 0; }
+    .score-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+    .score-block { flex: 1; }
+    .score-block label { display: block; font-size: 12px; font-weight: 600; color: #888; margin-bottom: 6px; text-align: center; }
+    .score-input { width: 100%; text-align: center; font-size: 32px; font-weight: 700; padding: 12px; border: 2px solid #ddd; border-radius: 10px; outline: none; font-family: inherit; }
+    .score-input:focus { border-color: var(--accent); }
+    .score-dash { font-size: 24px; font-weight: 700; color: #ccc; flex-shrink: 0; }
+    .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; background: var(--accent); color: white; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .msg { font-size: 13px; margin-top: 12px; min-height: 18px; text-align: center; }
+    .msg.error { color: #c0392b; }
+    .msg.success { color: #2d7a2d; }
+    .badge { display: inline-block; background: #deeef8; color: var(--accent); border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
+    .already-done { background: #f0faf0; border: 1px solid #b2dfb2; border-radius: 10px; padding: 1rem 1.25rem; text-align: center; }
+    .already-done .score-display { font-size: 28px; font-weight: 800; margin: 8px 0; }
+    .error-page { text-align: center; padding: 3rem 1rem; color: #888; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><img src="/SAS_CORNHOLE_26_logo.png" alt="" /><span id="eventName">SAS Cornhole</span></h1>
+  </header>
+
+  <div class="page">
+    <div id="content"><p style="color:#aaa;text-align:center;padding:3rem">Loading match...</p></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search)
+    const token = params.get('token')
+
+    async function applyConfig() {
+      try {
+        const cfg = await fetch('/api/config').then(r => r.json())
+        document.getElementById('eventName').textContent = cfg.eventName
+        if (cfg.accentColor) document.documentElement.style.setProperty('--accent', cfg.accentColor)
+      } catch {}
+    }
+
+    async function loadMatch() {
+      const div = document.getElementById('content')
+      if (!token) { div.innerHTML = '<div class="error-page">Missing score link token.</div>'; return }
+
+      let match
+      try {
+        const res = await fetch(`/api/score?token=${encodeURIComponent(token)}`)
+        if (!res.ok) {
+          const d = await res.json()
+          div.innerHTML = `<div class="error-page">${esc(d.error || 'Invalid link.')}</div>`
+          return
+        }
+        match = await res.json()
+      } catch {
+        div.innerHTML = '<div class="error-page">Network error — please try again.</div>'
+        return
+      }
+
+      const bracketLabel = match.bracket === 'W' ? 'Main Bracket' : 'Consolation'
+      const t1 = match.team1?.name || 'Team 1'
+      const t2 = match.team2?.name || 'Team 2'
+
+      if (match.status === 'complete' && match.score1 != null) {
+        const w = match.winner_id === match.team1_id ? t1 : t2
+        div.innerHTML = `
+          <div class="card">
+            <div class="badge">${bracketLabel} &bull; Round ${match.round}</div>
+            <div class="already-done">
+              <div style="font-size:13px;color:#555;margin-bottom:4px">Score submitted</div>
+              <div class="score-display">${match.score1} &ndash; ${match.score2}</div>
+              <div style="font-size:13px;font-weight:600;color:#2d7a2d">${esc(w)} wins</div>
+            </div>
+            <p style="font-size:12px;color:#aaa;margin-top:1rem;text-align:center">If there's a mistake, ask an admin to correct it.</p>
+          </div>`
+        return
+      }
+
+      div.innerHTML = `
+        <div class="card">
+          <div class="badge">${bracketLabel} &bull; Round ${match.round}</div>
+          <h2 style="font-size:17px;font-weight:700;margin-bottom:.25rem">Submit Your Score</h2>
+          <p style="font-size:13px;color:#888;margin-bottom:1.25rem">Enter the final score for your match.</p>
+          <div class="matchup">
+            <div class="team-name">${esc(t1)}</div>
+            <div class="vs">vs</div>
+            <div class="team-name">${esc(t2)}</div>
+          </div>
+          <div class="score-row">
+            <div class="score-block">
+              <label>${esc(t1)}</label>
+              <input class="score-input" id="s1" type="number" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="score-dash">&ndash;</div>
+            <div class="score-block">
+              <label>${esc(t2)}</label>
+              <input class="score-input" id="s2" type="number" min="0" max="99" placeholder="0" />
+            </div>
+          </div>
+          <button class="btn" id="submitBtn" onclick="submitScore()">Submit Score</button>
+          <div class="msg" id="msg"></div>
+        </div>`
+    }
+
+    async function submitScore() {
+      const btn = document.getElementById('submitBtn')
+      const msg = document.getElementById('msg')
+      const s1 = document.getElementById('s1').value
+      const s2 = document.getElementById('s2').value
+
+      if (s1 === '' || s2 === '') { msg.className = 'msg error'; msg.textContent = 'Enter both scores.'; return }
+      if (Number(s1) === Number(s2)) { msg.className = 'msg error'; msg.textContent = 'Scores cannot be tied.'; return }
+
+      btn.disabled = true; msg.textContent = ''
+      try {
+        const res = await fetch('/api/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, score1: Number(s1), score2: Number(s2) })
+        })
+        const data = await res.json()
+        if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; btn.disabled = false; return }
+        msg.className = 'msg success'; msg.textContent = '✓ Score submitted!'
+        setTimeout(loadMatch, 1000)
+      } catch {
+        msg.className = 'msg error'; msg.textContent = 'Network error — please try again.'
+        btn.disabled = false
+      }
+    }
+
+    function esc(s) { return !s ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    applyConfig()
+    loadMatch()
+  </script>
+</body>
+</html>

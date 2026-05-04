@@ -83,6 +83,7 @@
       <div class="tab active" onclick="showTab('teams')">Teams</div>
       <div class="tab" onclick="showTab('notify')">Send Texts</div>
       <div class="tab" onclick="showTab('bracket')">Create Bracket</div>
+      <div class="tab" onclick="showTab('matches')">Active Matches</div>
       <div class="tab" onclick="showTab('scores')">View Scores</div>
       <div class="tab" onclick="showTab('view-bracket')">View Bracket</div>
       <div class="tab" onclick="showTab('raffle')">Raffle</div>
@@ -128,6 +129,15 @@
         <p><strong>Reset tournament:</strong> Deletes all matches and reopens registration. Use only if starting over.</p>
         <button class="btn btn-danger" onclick="resetBracket()">Reset Bracket & Reopen Registration</button>
         <div class="msg" id="resetMsg"></div>
+      </div>
+    </div>
+
+    <!-- Active Matches panel -->
+    <div class="panel" id="panel-matches">
+      <div class="card">
+        <h2 style="font-size:16px;margin-bottom:.5rem">Active Matches</h2>
+        <p style="font-size:13px;color:#888;margin-bottom:1.25rem">Send each team a unique link to submit their score. Admin can always override via the bracket view.</p>
+        <div id="activeMatchesTable">Loading...</div>
       </div>
     </div>
 
@@ -203,17 +213,78 @@
 
     function showTab(name) {
       document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', ['teams','notify','bracket','scores','view-bracket','raffle'][i] === name)
+        t.classList.toggle('active', ['teams','notify','bracket','matches','scores','view-bracket','raffle'][i] === name)
       })
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.getElementById('panel-' + name).classList.add('active')
       if (name === 'bracket') updateBracketSizeNote()
+      if (name === 'matches') loadActiveMatches()
       if (name === 'scores') loadScores()
       if (name === 'raffle') loadRaffle()
       if (name === 'view-bracket') {
         const iframe = document.querySelector('#panel-view-bracket iframe')
         iframe.src = iframe.src  // force reload
       }
+    }
+
+    function scoreUrl(matchId) {
+      const token = matchId + '-PLACEHOLDER'  // real token comes from API
+      return `${location.origin}/score.html?token=${token}`
+    }
+
+    async function loadActiveMatches() {
+      const div = document.getElementById('activeMatchesTable')
+      div.innerHTML = 'Loading...'
+      const res = await fetch('/api/matches')
+      if (!res.ok) { div.innerHTML = '<p style="color:#c0392b">Failed to load matches.</p>'; return }
+      const matches = await res.json()
+      const active = matches.filter(m => m.status === 'pending' && m.team1_id && m.team2_id && !m.is_bye)
+      if (!active.length) {
+        div.innerHTML = '<p style="color:#aaa;font-size:14px">No active matches yet — create the bracket first.</p>'
+        return
+      }
+      div.innerHTML = `<table>
+        <thead><tr><th>Match</th><th>Team 1</th><th>Team 2</th><th>Score Link</th><th></th></tr></thead>
+        <tbody>${active.map(m => {
+          const bracketLabel = m.bracket === 'W' ? 'Main' : 'Consolation'
+          const url = `${location.origin}/score.html?token=${m.id}-PENDING`
+          return `<tr>
+            <td style="font-weight:600">${bracketLabel} R${m.round} #${m.position+1}</td>
+            <td>${esc(m.team1?.name)}</td>
+            <td>${esc(m.team2?.name)}</td>
+            <td><button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="copyScoreLink(${m.id}, this)">Copy Link</button></td>
+            <td><button class="btn btn-primary" style="font-size:11px;padding:4px 10px;background:#2d7a2d" onclick="textScoreLink(${m.id}, this)">Text Teams</button></td>
+          </tr>`
+        }).join('')}
+        </tbody>
+      </table>`
+    }
+
+    async function copyScoreLink(matchId, btn) {
+      const res = await fetch('/api/score-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify({ match_id: matchId, link_only: true })
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error); return }
+      await navigator.clipboard.writeText(data.url)
+      const orig = btn.textContent; btn.textContent = 'Copied!'
+      setTimeout(() => { btn.textContent = orig }, 1500)
+    }
+
+    async function textScoreLink(matchId, btn) {
+      if (!confirm('Text the score link to both teams?')) return
+      btn.disabled = true; btn.textContent = 'Sending...'
+      const res = await fetch('/api/score-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify({ match_id: matchId })
+      })
+      const data = await res.json()
+      btn.disabled = false; btn.textContent = 'Text Teams'
+      if (!res.ok) { alert(data.error); return }
+      alert(`✓ Sent to ${data.sent} team${data.sent !== 1 ? 's' : ''}${data.failed ? ` (${data.failed} failed)` : ''}`)
     }
 
     const RAFFLE_PRIZES = [

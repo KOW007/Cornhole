@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js')
+const { propagateByes, applyScore } = require('./_bracket')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -131,57 +132,6 @@ function assignTeams(matches, teams, bracketSize) {
   return matches
 }
 
-async function propagateByes() {
-  for (let pass = 0; pass < 20; pass++) {
-    const { data: allMatches } = await supabase.from(`${T}_matches`).select('*')
-    if (!allMatches) break
-    const matchMap = Object.fromEntries(allMatches.map(m => [m.id, { ...m }]))
-    let changed = false
-
-    // Phase 1: fill all empty next-match slots from complete matches
-    for (const m of allMatches) {
-      if (m.status !== 'complete' || !m.winner_id || !m.next_match_id) continue
-      const next = matchMap[m.next_match_id]
-      if (!next || next.status === 'complete') continue
-      const slotField = m.next_slot === 1 ? 'team1_id' : 'team2_id'
-      if (!next[slotField]) {
-        await supabase.from(`${T}_matches`).update({ [slotField]: m.winner_id }).eq('id', m.next_match_id)
-        next[slotField] = m.winner_id
-        changed = true
-      }
-    }
-
-    // Phase 2: auto-complete matches whose empty slot(s) can never be filled.
-    // A slot is "settled" if it already has a team OR every match that feeds into
-    // that slot is already complete (so no team is coming).
-    const allMaps = Object.values(matchMap)
-    for (const next of allMaps) {
-      if (next.status === 'complete') continue
-      if (next.team1_id && next.team2_id) continue  // two real teams — needs a score
-
-      const feedersFor = (slotNum) => allMaps.filter(f =>
-        (f.next_match_id === next.id && f.next_slot === slotNum) ||
-        (f.loser_next_match_id === next.id && f.loser_next_slot === slotNum)
-      )
-
-      const slot1Settled = !!next.team1_id || feedersFor(1).every(f => f.status === 'complete')
-      const slot2Settled = !!next.team2_id || feedersFor(2).every(f => f.status === 'complete')
-
-      if (slot1Settled && slot2Settled) {
-        const winnerId = next.team1_id || next.team2_id || null
-        await supabase.from(`${T}_matches`).update({
-          winner_id: winnerId, status: 'complete', is_bye: true
-        }).eq('id', next.id)
-        next.winner_id = winnerId
-        next.status = 'complete'
-        next.is_bye = true
-        changed = true
-      }
-    }
-
-    if (!changed) break
-  }
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -225,48 +175,12 @@ module.exports = async function handler(req, res) {
     const { match_id, score1, score2 } = req.body
     if (match_id == null || score1 == null || score2 == null)
       return res.status(400).json({ error: 'match_id, score1, score2 required' })
-    if (score1 === score2)
-      return res.status(400).json({ error: 'Scores cannot be tied.' })
-
-    const { data: match, error: me } = await supabase
-      .from(`${T}_matches`).select('*').eq('id', match_id).single()
-    if (me || !match) return res.status(404).json({ error: 'Match not found' })
-    if (!match.team1_id || !match.team2_id)
-      return res.status(400).json({ error: 'Match does not have two teams yet.' })
-
-    const winner_id = score1 > score2 ? match.team1_id : match.team2_id
-    const loser_id = score1 > score2 ? match.team2_id : match.team1_id
-
-    await supabase.from(`${T}_matches`)
-      .update({ score1, score2, winner_id, status: 'complete' })
-      .eq('id', match_id)
-
-    if (match.next_match_id && winner_id) {
-      const slot = match.next_slot === 1 ? 'team1_id' : 'team2_id'
-      await supabase.from(`${T}_matches`)
-        .update({ [slot]: winner_id }).eq('id', match.next_match_id)
+    try {
+      await applyScore(supabase, T, match_id, score1, score2)
+      return res.json({ success: true })
+    } catch (e) {
+      return res.status(e.status || 500).json({ error: e.error || e.message || 'Server error.' })
     }
-
-    if (match.bracket === 'W' && match.loser_next_match_id && loser_id) {
-      // Only send to consolation if this is the loser's first real match loss.
-      // A prior real win means they've already had their second chance (guaranteed 2 matches).
-      const { data: priorWins } = await supabase
-        .from(`${T}_matches`)
-        .select('id')
-        .eq('winner_id', loser_id)
-        .eq('is_bye', false)
-      const isFirstRealLoss = !priorWins || priorWins.length === 0
-      if (isFirstRealLoss) {
-        const slot = match.loser_next_slot === 1 ? 'team1_id' : 'team2_id'
-        await supabase.from(`${T}_matches`)
-          .update({ [slot]: loser_id }).eq('id', match.loser_next_match_id)
-      }
-    }
-
-    // Propagate any bye wins that are now unblocked
-    await propagateByes()
-
-    return res.json({ success: true })
   }
 
   if (req.method === 'DELETE') {
