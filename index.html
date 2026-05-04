@@ -77,16 +77,6 @@
               <input id="player1" type="text" placeholder="First & last name" maxlength="60" />
             </div>
             <div class="form-row">
-              <label>Player 1 Shirt Size</label>
-              <select id="shirt1">
-                <option value="">— Select size —</option>
-                <option>Small</option>
-                <option>Medium</option>
-                <option>Large</option>
-                <option>XL</option>
-              </select>
-            </div>
-            <div class="form-row">
               <label>Partner Status</label>
               <select id="partnerStatus" onchange="togglePlayer2()">
                 <option value="has_partner">I have a partner</option>
@@ -97,16 +87,6 @@
             <div class="form-row" id="player2Row">
               <label>Player 2</label>
               <input id="player2" type="text" placeholder="First & last name" maxlength="60" />
-            </div>
-            <div class="form-row" id="shirt2Row">
-              <label>Player 2 Shirt Size</label>
-              <select id="shirt2">
-                <option value="">— Select size —</option>
-                <option>Small</option>
-                <option>Medium</option>
-                <option>Large</option>
-                <option>XL</option>
-              </select>
             </div>
             <div class="form-row">
               <label>Phone Number</label>
@@ -161,7 +141,6 @@
   <script>
     let venmoHandle = ''
     let ENTRY_FEE = 0
-    const SHIRT_FEE = 25
 
     async function applyConfig() {
       try {
@@ -216,9 +195,6 @@
       const partnerStatus = document.getElementById('partnerStatus').value
       const p2 = partnerStatus === 'has_partner' ? document.getElementById('player2').value.trim() : ''
       const phone = document.getElementById('phone').value.trim()
-      const shirt1 = document.getElementById('shirt1').value
-      const shirt2 = partnerStatus === 'has_partner' ? document.getElementById('shirt2').value : ''
-
       if (!name || !p1 || !phone) {
         msg.className = 'msg error'; msg.textContent = 'Please fill in all fields.'; return
       }
@@ -240,7 +216,7 @@
         const res = await fetch('/api/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, player1: p1, player2: p2, phone, partner_status: partnerStatus, shirt1, shirt2: shirt2 || null })
+          body: JSON.stringify({ name, player1: p1, player2: p2, phone, partner_status: partnerStatus })
         })
         const data = await res.json()
 
@@ -253,26 +229,20 @@
           }
         } else {
           const numPlayers = partnerStatus === 'has_partner' ? 2 : 1
-          const numShirts = (shirt1 ? 1 : 0) + (shirt2 ? 1 : 0)
-          const total = numPlayers * ENTRY_FEE + numShirts * SHIRT_FEE
+          const total = numPlayers * ENTRY_FEE
           const players = [p1, p2].filter(Boolean).join(' & ')
-          const noteText = `${data.name} (${players})` + (numShirts ? ` + ${numShirts} shirt${numShirts > 1 ? 's' : ''}` : '') + ' - Cornhole'
+          const noteText = `${data.name} (${players}) - Cornhole`
           const note = encodeURIComponent(noteText)
           const handle = venmoHandle.replace(/^@/, '')
           const venmoUrl = handle ? `https://venmo.com/${handle}?txn=pay&amount=${total}&note=${note}` : null
-          const breakdown = [
-            `${numPlayers} player${numPlayers > 1 ? 's' : ''} × $${ENTRY_FEE} = $${numPlayers * ENTRY_FEE}`,
-            numShirts ? `${numShirts} shirt${numShirts > 1 ? 's' : ''} × $${SHIRT_FEE} = $${numShirts * SHIRT_FEE}` : null
-          ].filter(Boolean).join(' + ')
+          const breakdown = `${numPlayers} player${numPlayers > 1 ? 's' : ''} × $${ENTRY_FEE} = $${total}`
           msg.className = 'msg success'
           msg.innerHTML = `✓ "${esc(data.name)}" registered!<br>
             <span style="font-size:12px;color:#555;display:block;margin-top:6px">${breakdown}<br><strong>Total: $${total}</strong></span>
             ${venmoUrl ? `<a href="${venmoUrl}" target="_blank" style="display:inline-block;margin-top:8px;background:#3d95ce;color:white;padding:6px 16px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none">Pay $${total} via Venmo</a>` : ''}`
           document.getElementById('teamName').value = ''
           document.getElementById('player1').value = ''
-          document.getElementById('shirt1').value = ''
           document.getElementById('player2').value = ''
-          document.getElementById('shirt2').value = ''
           document.getElementById('phone').value = ''
           document.getElementById('smsConsent').checked = false
           document.getElementById('partnerStatus').value = 'has_partner'
@@ -321,7 +291,6 @@
     function togglePlayer2() {
       const hasPartner = document.getElementById('partnerStatus').value === 'has_partner'
       document.getElementById('player2Row').style.display = hasPartner ? 'block' : 'none'
-      document.getElementById('shirt2Row').style.display = hasPartner ? 'block' : 'none'
     }
 
     function partnerBadge(t) {
