@@ -2,8 +2,6 @@
   "name": "cornhole-tournament",
   "version": "1.0.0",
   "dependencies": {
-    "@supabase/supabase-js": "^2.0.0",
-    "@vonage/messages": "^1.24.0",
-    "@vonage/server-sdk": "^3.27.0"
+    "@supabase/supabase-js": "^2.0.0"
   }
 }

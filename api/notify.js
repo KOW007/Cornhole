@@ -29,29 +29,16 @@ module.exports = async function handler(req, res) {
   const venmoLink   = `https://venmo.com/${venmoHandle}?txn=pay&amount=${entryFee}&note=${encodeURIComponent(eventName)}`
   const message     = `Hi! You're registered for the ${eventName}. Entry fee is $${entryFee}/team ($${Math.round(entryFee / 2)}/person). Please pay via Venmo: ${venmoLink}`
 
-  const { Vonage } = require('@vonage/server-sdk')
-  const vonage = new Vonage({
-    apiKey: process.env.VONAGE_API_KEY,
-    apiSecret: process.env.VONAGE_API_SECRET,
-  })
-  const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
-
+  const { vonageSend, normalizePhone } = require('./_notify')
   const results = { sent: 0, failed: 0, skipped: 0, sentList: [], failedList: [] }
 
-  // If a specific team_id is provided, only text that team
   const targetId = req.body?.team_id || null
   const targetTeams = targetId ? teams.filter(t => t.id === targetId) : teams
 
   for (const team of targetTeams) {
     if (!team.phone) { results.skipped++; continue }
-
-    let phone = team.phone.replace(/\D/g, '')
-    if (phone.length === 10) phone = '1' + phone
-    else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
-    if (!phone.startsWith('+')) phone = '+' + phone
-
     try {
-      const resp = await vonage.sms.send({ to: phone, from, text: message })
+      const resp = await vonageSend(normalizePhone(team.phone), message)
       if (resp.messages[0].status === '0') { results.sent++; results.sentList.push({ name: team.name, phone: team.phone }) }
       else { results.failed++; results.failedList.push({ name: team.name, phone: team.phone }) }
     } catch (e) {

@@ -172,10 +172,8 @@ module.exports = async function handler(req, res) {
 
     // Text each R1 team their station # and score link
     try {
-      const { Vonage } = require('@vonage/server-sdk')
       const { scoreToken } = require('./_bracket')
-      const vonage = new Vonage({ apiKey: process.env.VONAGE_API_KEY, apiSecret: process.env.VONAGE_API_SECRET })
-      const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
+      const { vonageSend, normalizePhone } = require('./_notify')
       const eventName = process.env.EVENT_NAME || 'Tournament'
       const host = req.headers['x-forwarded-host'] || req.headers.host
 
@@ -190,12 +188,8 @@ module.exports = async function handler(req, res) {
         for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
           const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
           const text = `${eventName} — The draw is set! You're at Station ${station} vs ${opponent}. Submit your score: ${url}`
-          let phone = team.phone.replace(/\D/g, '')
-          if (phone.length === 10) phone = '1' + phone
-          else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
-          if (!phone.startsWith('+')) phone = '+' + phone
-          const result = await vonage.sms.send({ to: phone, from, text }).catch(err => ({ error: err }))
-          console.log(`SMS to ${team.name} (${phone}):`, JSON.stringify(result))
+          const result = await vonageSend(normalizePhone(team.phone), text).catch(err => ({ error: err.message }))
+          console.log(`SMS to ${team.name}:`, JSON.stringify(result))
         }
       }
     } catch (e) {

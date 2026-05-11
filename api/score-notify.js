@@ -37,21 +37,13 @@ module.exports = async function handler(req, res) {
   const eventName = process.env.EVENT_NAME || 'SAS Cornhole Tournament'
   const message = `${eventName} — ${bracketLabel} Round ${match.round}: ${match.team1.name} vs ${match.team2.name}. Submit your score: ${url}`
 
-  const { Vonage } = require('@vonage/server-sdk')
-  const vonage = new Vonage({ apiKey: process.env.VONAGE_API_KEY, apiSecret: process.env.VONAGE_API_SECRET })
-  const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
-
+  const { vonageSend, normalizePhone } = require('./_notify')
   const teams = [match.team1, match.team2].filter(t => t?.phone)
   const results = { sent: 0, failed: 0, sentList: [], failedList: [] }
 
   for (const team of teams) {
-    let phone = team.phone.replace(/\D/g, '')
-    if (phone.length === 10) phone = '1' + phone
-    else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
-    if (!phone.startsWith('+')) phone = '+' + phone
-
     try {
-      const resp = await vonage.sms.send({ to: phone, from, text: message })
+      const resp = await vonageSend(normalizePhone(team.phone), message)
       if (resp.messages[0].status === '0') { results.sent++; results.sentList.push(team.name) }
       else { results.failed++; results.failedList.push(team.name) }
     } catch {
