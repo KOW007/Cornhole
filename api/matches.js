@@ -187,7 +187,7 @@ module.exports = async function handler(req, res) {
         const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
         for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
           const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
-          const text = `${eventName} — The draw is set! You're at Station ${station} vs ${opponent}. Submit your score: ${url}`
+          const text = `Welcome to the ${eventName}! You're at Station ${station} vs ${opponent}. Submit your score: ${url}`
           const result = await vonageSend(normalizePhone(team.phone), text).catch(err => ({ error: err.message }))
           console.log(`SMS to ${team.name}:`, JSON.stringify(result))
         }
