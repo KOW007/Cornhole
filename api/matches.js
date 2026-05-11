@@ -10,7 +10,7 @@ const supabase = createClient(
 const T = process.env.TABLE_PREFIX || 'ct'
 
 function getBracketSize(teamCount) {
-  const sizes = [8, 16, 32, 64, 128]
+  const sizes = [4, 8, 16, 32, 64, 128]
   return sizes.find(s => s >= teamCount) || 128
 }
 
