@@ -339,7 +339,7 @@
     }
 
     function getBracketSize(count) {
-      return [8, 16, 32, 64, 128].find(s => s >= count) || 128
+      return [4, 8, 16, 32, 64, 128].find(s => s >= count) || 128
     }
 
     async function updateBracketSizeNote() {
