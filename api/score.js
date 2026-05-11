@@ -13,6 +13,7 @@ module.exports = async function handler(req, res) {
 
   const rawToken = req.method === 'GET' ? req.query.token : req.body?.token
   const matchId = verifyToken(rawToken)
+  console.log('score token:', rawToken, '→ matchId:', matchId, 'SECRET:', process.env.SCORE_SECRET ? 'set' : 'unset')
   if (matchId == null) return res.status(403).json({ error: 'Invalid or expired link.' })
 
   if (req.method === 'GET') {
