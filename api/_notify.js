@@ -23,30 +23,68 @@ async function vonageSend(to, text) {
   return res.json()
 }
 
-async function notifyNextMatches(supabase, T, { next_match_id, loser_next_match_id }, host) {
-  const ids = [next_match_id, loser_next_match_id].filter(Boolean)
-  if (!ids.length) return
+// When a score is submitted, set ready_at on matches that now have both teams
+async function markReadyMatches(supabase, T) {
+  await supabase.from(`${T}_matches`)
+    .update({ ready_at: new Date().toISOString() })
+    .eq('status', 'pending')
+    .eq('is_bye', false)
+    .not('team1_id', 'is', null)
+    .not('team2_id', 'is', null)
+    .is('ready_at', null)
+}
 
-  const { data: nextMatches } = await supabase
+// Pair any available stations with the longest-waiting matches and text those teams
+async function checkAndAssignStations(supabase, T, host) {
+  const { data: waiting } = await supabase
     .from(`${T}_matches`)
-    .select('id, bracket, round, is_bye, status, team1:team1_id(id,name,phone), team2:team2_id(id,name,phone)')
-    .in('id', ids)
+    .select('id, bracket, round, team1:team1_id(id,name,phone), team2:team2_id(id,name,phone)')
+    .eq('status', 'pending')
+    .eq('is_bye', false)
+    .is('station', null)
+    .not('team1_id', 'is', null)
+    .not('team2_id', 'is', null)
+    .not('ready_at', 'is', null)
+    .order('ready_at', { ascending: true })
 
-  const ready = (nextMatches || []).filter(m => m.team1?.id && m.team2?.id && m.status === 'pending' && !m.is_bye)
-  if (!ready.length) return
+  if (!waiting?.length) return
+
+  const { data: stationedMatches } = await supabase
+    .from(`${T}_matches`)
+    .select('status, station')
+    .not('station', 'is', null)
+
+  if (!stationedMatches?.length) return
+
+  const pendingStations = new Set(
+    stationedMatches.filter(m => m.status === 'pending').map(m => m.station)
+  )
+  const available = [...new Set(
+    stationedMatches
+      .filter(m => m.status === 'complete' && !pendingStations.has(m.station))
+      .map(m => m.station)
+  )].sort((a, b) => a - b)
+
+  if (!available.length) return
 
   const eventName = process.env.EVENT_NAME || 'Tournament'
+  const pairs = Math.min(available.length, waiting.length)
 
-  for (const match of ready) {
+  for (let i = 0; i < pairs; i++) {
+    const station = available[i]
+    const match = waiting[i]
+
+    await supabase.from(`${T}_matches`).update({ station }).eq('id', match.id)
+
     const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
-    const bracketLabel = match.bracket === 'W' ? 'Main Bracket' : 'Consolation'
+    const label = match.bracket === 'L' ? 'Consolation ' : ''
 
     for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
       const opponent = team.id === match.team1.id ? match.team2.name : match.team1.name
-      const text = `${eventName} — Your next match is ready! ${bracketLabel} Round ${match.round} vs ${opponent}. Submit your score: ${url}`
+      const text = `${eventName} — ${label}Station ${station} vs ${opponent}. Score: ${url}`
       await vonageSend(normalizePhone(team.phone), text).catch(() => {})
     }
   }
 }
 
-module.exports = { vonageSend, normalizePhone, notifyNextMatches }
+module.exports = { vonageSend, normalizePhone, markReadyMatches, checkAndAssignStations }

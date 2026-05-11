@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const { propagateByes, applyScore } = require('./_bracket')
-const { notifyNextMatches } = require('./_notify')
+const { vonageSend, normalizePhone, markReadyMatches, checkAndAssignStations } = require('./_notify')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -170,26 +170,35 @@ module.exports = async function handler(req, res) {
 
     await supabase.from(`${T}_settings`).upsert({ key: 'bracket_created', value: 'true' })
 
-    // Text each R1 team their station # and score link
+    // Assign stations 1-12 to first 12 real R1 matches, queue the rest
     try {
       const { scoreToken } = require('./_bracket')
-      const { vonageSend, normalizePhone } = require('./_notify')
       const eventName = process.env.EVENT_NAME || 'Tournament'
       const host = req.headers['x-forwarded-host'] || req.headers.host
+      const now = new Date().toISOString()
+      const MAX_STATIONS = 12
 
       const { data: r1 } = await supabase
         .from(`${T}_matches`)
         .select('id, position, team1:team1_id(id,name,phone), team2:team2_id(id,name,phone)')
         .eq('bracket', 'W').eq('round', 1).eq('is_bye', false)
+        .order('position', { ascending: true })
 
-      for (const match of (r1 || [])) {
-        const station = match.position + 1
-        const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
-        for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
-          const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
-          const text = `Welcome to the ${eventName}! You're at Station ${station} vs ${opponent}. Submit your score: ${url}`
-          const result = await vonageSend(normalizePhone(team.phone), text).catch(err => ({ error: err.message }))
-          console.log(`SMS to ${team.name}:`, JSON.stringify(result))
+      for (let i = 0; i < (r1 || []).length; i++) {
+        const match = r1[i]
+        const station = i < MAX_STATIONS ? i + 1 : null
+        await supabase.from(`${T}_matches`)
+          .update({ ready_at: now, ...(station ? { station } : {}) })
+          .eq('id', match.id)
+
+        if (station) {
+          const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
+          for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
+            const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
+            const text = `Welcome to the ${eventName}! Station ${station} vs ${opponent}. Score: ${url}`
+            const result = await vonageSend(normalizePhone(team.phone), text).catch(err => ({ error: err.message }))
+            console.log(`SMS to ${team.name}:`, JSON.stringify(result))
+          }
         }
       }
     } catch (e) {
@@ -205,12 +214,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'match_id, score1, score2 required' })
     try {
       await applyScore(supabase, T, match_id, score1, score2)
-      const { data: scored } = await supabase
-        .from(`${T}_matches`).select('next_match_id, loser_next_match_id').eq('id', match_id).single()
-      if (scored) {
-        const host = req.headers['x-forwarded-host'] || req.headers.host
-        await notifyNextMatches(supabase, T, scored, host).catch(() => {})
-      }
+      const host = req.headers['x-forwarded-host'] || req.headers.host
+      await markReadyMatches(supabase, T).catch(() => {})
+      await checkAndAssignStations(supabase, T, host).catch(() => {})
       return res.json({ success: true })
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || e.message || 'Server error.' })
