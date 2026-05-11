@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const { propagateByes, applyScore } = require('./_bracket')
+const { notifyNextMatches } = require('./_notify')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -168,6 +169,37 @@ module.exports = async function handler(req, res) {
     if (ie) return res.status(500).json({ error: ie.message })
 
     await supabase.from(`${T}_settings`).upsert({ key: 'bracket_created', value: 'true' })
+
+    // Text each R1 team their station # and score link
+    try {
+      const { Vonage } = require('@vonage/server-sdk')
+      const { scoreToken } = require('./_bracket')
+      const vonage = new Vonage({ apiKey: process.env.VONAGE_API_KEY, apiSecret: process.env.VONAGE_API_SECRET })
+      const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
+      const eventName = process.env.EVENT_NAME || 'Tournament'
+      const host = req.headers['x-forwarded-host'] || req.headers.host
+
+      const { data: r1 } = await supabase
+        .from(`${T}_matches`)
+        .select('id, position, team1:team1_id(id,name,phone), team2:team2_id(id,name,phone)')
+        .eq('bracket', 'W').eq('round', 1).eq('is_bye', false)
+
+      for (const match of (r1 || [])) {
+        const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
+        for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
+          const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
+          const text = `${eventName} — The draw is set! Your first match is vs ${opponent}. Submit your score: ${url}`
+          let phone = team.phone.replace(/\D/g, '')
+          if (phone.length === 10) phone = '1' + phone
+          else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
+          if (!phone.startsWith('+')) phone = '+' + phone
+          await vonage.sms.send({ to: phone, from, text }).catch(() => {})
+        }
+      }
+    } catch (e) {
+      // SMS failure is non-fatal — bracket was created successfully
+    }
+
     return res.json({ success: true, matchCount: matches.length })
   }
 
@@ -177,6 +209,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'match_id, score1, score2 required' })
     try {
       await applyScore(supabase, T, match_id, score1, score2)
+      const { data: scored } = await supabase
+        .from(`${T}_matches`).select('next_match_id, loser_next_match_id').eq('id', match_id).single()
+      if (scored) {
+        const host = req.headers['x-forwarded-host'] || req.headers.host
+        await notifyNextMatches(supabase, T, scored, host).catch(() => {})
+      }
       return res.json({ success: true })
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || e.message || 'Server error.' })

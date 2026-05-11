@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const { verifyToken, applyScore } = require('./_bracket')
+const { notifyNextMatches } = require('./_notify')
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
 const T = process.env.TABLE_PREFIX || 'ct'
@@ -28,6 +29,12 @@ module.exports = async function handler(req, res) {
     const { score1, score2 } = req.body
     try {
       await applyScore(supabase, T, matchId, score1, score2)
+      const { data: scored } = await supabase
+        .from(`${T}_matches`).select('next_match_id, loser_next_match_id').eq('id', matchId).single()
+      if (scored) {
+        const host = req.headers['x-forwarded-host'] || req.headers.host
+        await notifyNextMatches(supabase, T, scored, host).catch(() => {})
+      }
       return res.json({ success: true })
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || 'Server error.' })

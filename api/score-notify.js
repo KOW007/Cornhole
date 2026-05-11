@@ -37,11 +37,9 @@ module.exports = async function handler(req, res) {
   const eventName = process.env.EVENT_NAME || 'SAS Cornhole Tournament'
   const message = `${eventName} — ${bracketLabel} Round ${match.round}: ${match.team1.name} vs ${match.team2.name}. Submit your score: ${url}`
 
-  const sid = process.env.TWILIO_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_PHONE
-  const auth = Buffer.from(`${sid}:${authToken}`).toString('base64')
-  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`
+  const { Vonage } = require('@vonage/server-sdk')
+  const vonage = new Vonage({ apiKey: process.env.VONAGE_API_KEY, apiSecret: process.env.VONAGE_API_SECRET })
+  const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
 
   const teams = [match.team1, match.team2].filter(t => t?.phone)
   const results = { sent: 0, failed: 0, sentList: [], failedList: [] }
@@ -53,12 +51,8 @@ module.exports = async function handler(req, res) {
     if (!phone.startsWith('+')) phone = '+' + phone
 
     try {
-      const r = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ From: from, To: phone, Body: message })
-      })
-      if (r.ok) { results.sent++; results.sentList.push(team.name) }
+      const resp = await vonage.sms.send({ to: phone, from, text: message })
+      if (resp.messages[0].status === '0') { results.sent++; results.sentList.push(team.name) }
       else { results.failed++; results.failedList.push(team.name) }
     } catch {
       results.failed++; results.failedList.push(team.name)
