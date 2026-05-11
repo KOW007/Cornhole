@@ -37,14 +37,14 @@ module.exports = async function handler(req, res) {
   const eventName = process.env.EVENT_NAME || 'SAS Cornhole Tournament'
   const message = `${eventName} — ${bracketLabel} Round ${match.round}: ${match.team1.name} vs ${match.team2.name}. Submit your score: ${url}`
 
-  const { vonageSend, normalizePhone } = require('./_notify')
+  const { sendSms, normalizePhone } = require('./_notify')
   const teams = [match.team1, match.team2].filter(t => t?.phone)
   const results = { sent: 0, failed: 0, sentList: [], failedList: [] }
 
   for (const team of teams) {
     try {
-      const resp = await vonageSend(normalizePhone(team.phone), message)
-      if (resp.messages[0].status === '0') { results.sent++; results.sentList.push(team.name) }
+      const resp = await sendSms(normalizePhone(team.phone), message)
+      if (resp.success) { results.sent++; results.sentList.push(team.name) }
       else { results.failed++; results.failedList.push(team.name) }
     } catch {
       results.failed++; results.failedList.push(team.name)

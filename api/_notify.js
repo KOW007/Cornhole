@@ -8,22 +8,15 @@ function normalizePhone(raw) {
   return phone
 }
 
-async function vonageSend(to, text) {
-  const res = await fetch('https://rest.nexmo.com/sms/json', {
+async function sendSms(to, text) {
+  const res = await fetch('https://textbelt.com/text', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      api_key: process.env.VONAGE_API_KEY,
-      api_secret: process.env.VONAGE_API_SECRET,
-      from: process.env.VONAGE_FROM_NUMBER,
-      to,
-      text
-    })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: to, message: text, key: process.env.TEXTBELT_KEY })
   })
   return res.json()
 }
 
-// When a score is submitted, set ready_at on matches that now have both teams
 async function markReadyMatches(supabase, T) {
   await supabase.from(`${T}_matches`)
     .update({ ready_at: new Date().toISOString() })
@@ -34,7 +27,6 @@ async function markReadyMatches(supabase, T) {
     .is('ready_at', null)
 }
 
-// Pair any available stations with the longest-waiting matches and text those teams
 async function checkAndAssignStations(supabase, T, host) {
   const { data: waiting } = await supabase
     .from(`${T}_matches`)
@@ -82,9 +74,9 @@ async function checkAndAssignStations(supabase, T, host) {
     for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
       const opponent = team.id === match.team1.id ? match.team2.name : match.team1.name
       const text = `${eventName} — ${label}Station ${station} vs ${opponent}. Score: ${url}`
-      await vonageSend(normalizePhone(team.phone), text).catch(() => {})
+      await sendSms(normalizePhone(team.phone), text).catch(() => {})
     }
   }
 }
 
-module.exports = { vonageSend, normalizePhone, markReadyMatches, checkAndAssignStations }
+module.exports = { sendSms, normalizePhone, markReadyMatches, checkAndAssignStations }
