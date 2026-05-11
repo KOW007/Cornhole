@@ -185,19 +185,21 @@ module.exports = async function handler(req, res) {
         .eq('bracket', 'W').eq('round', 1).eq('is_bye', false)
 
       for (const match of (r1 || [])) {
+        const station = match.position + 1
         const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
         for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
           const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
-          const text = `${eventName} — The draw is set! Your first match is vs ${opponent}. Submit your score: ${url}`
+          const text = `${eventName} — The draw is set! You're at Station ${station} vs ${opponent}. Submit your score: ${url}`
           let phone = team.phone.replace(/\D/g, '')
           if (phone.length === 10) phone = '1' + phone
           else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
           if (!phone.startsWith('+')) phone = '+' + phone
-          await vonage.sms.send({ to: phone, from, text }).catch(() => {})
+          const result = await vonage.sms.send({ to: phone, from, text }).catch(err => ({ error: err }))
+          console.log(`SMS to ${team.name} (${phone}):`, JSON.stringify(result))
         }
       }
     } catch (e) {
-      // SMS failure is non-fatal — bracket was created successfully
+      console.error('SMS bracket notify error:', e.message || e)
     }
 
     return res.json({ success: true, matchCount: matches.length })
