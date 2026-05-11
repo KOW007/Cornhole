@@ -1,4 +1,3 @@
-const { Vonage } = require('@vonage/server-sdk')
 const { scoreToken } = require('./_bracket')
 
 function normalizePhone(raw) {
@@ -21,6 +20,7 @@ async function notifyNextMatches(supabase, T, { next_match_id, loser_next_match_
   const ready = (nextMatches || []).filter(m => m.team1?.id && m.team2?.id && m.status === 'pending' && !m.is_bye)
   if (!ready.length) return
 
+  const { Vonage } = require('@vonage/server-sdk')
   const vonage = new Vonage({ apiKey: process.env.VONAGE_API_KEY, apiSecret: process.env.VONAGE_API_SECRET })
   const from = process.env.VONAGE_FROM_NUMBER || 'Cornhole'
   const eventName = process.env.EVENT_NAME || 'Tournament'
