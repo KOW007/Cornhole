@@ -29,36 +29,17 @@ module.exports = async function handler(req, res) {
   const venmoLink   = `https://venmo.com/${venmoHandle}?txn=pay&amount=${entryFee}&note=${encodeURIComponent(eventName)}`
   const message     = `Hi! You're registered for the ${eventName}. Entry fee is $${entryFee}/team ($${Math.round(entryFee / 2)}/person). Please pay via Venmo: ${venmoLink}`
 
-  const sid = process.env.TWILIO_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_PHONE
-  const auth = Buffer.from(`${sid}:${token}`).toString('base64')
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`
-
+  const { sendSms, normalizePhone } = require('./_notify')
   const results = { sent: 0, failed: 0, skipped: 0, sentList: [], failedList: [] }
 
-  // If a specific team_id is provided, only text that team
   const targetId = req.body?.team_id || null
   const targetTeams = targetId ? teams.filter(t => t.id === targetId) : teams
 
   for (const team of targetTeams) {
     if (!team.phone) { results.skipped++; continue }
-
-    let phone = team.phone.replace(/\D/g, '')
-    if (phone.length === 10) phone = '1' + phone
-    else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
-    if (!phone.startsWith('+')) phone = '+' + phone
-
     try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({ From: from, To: phone, Body: message })
-      })
-      if (r.ok) { results.sent++; results.sentList.push({ name: team.name, phone: team.phone }) }
+      const resp = await sendSms(normalizePhone(team.phone), message)
+      if (resp.success) { results.sent++; results.sentList.push({ name: team.name, phone: team.phone }) }
       else { results.failed++; results.failedList.push({ name: team.name, phone: team.phone }) }
     } catch (e) {
       results.failed++; results.failedList.push({ name: team.name, phone: team.phone })

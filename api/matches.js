@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const { propagateByes, applyScore } = require('./_bracket')
+const { sendSms, normalizePhone, markReadyMatches, checkAndAssignStations } = require('./_notify')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -9,7 +10,7 @@ const supabase = createClient(
 const T = process.env.TABLE_PREFIX || 'ct'
 
 function getBracketSize(teamCount) {
-  const sizes = [8, 16, 32, 64, 128]
+  const sizes = [4, 8, 16, 32, 64, 128]
   return sizes.find(s => s >= teamCount) || 128
 }
 
@@ -168,6 +169,42 @@ module.exports = async function handler(req, res) {
     if (ie) return res.status(500).json({ error: ie.message })
 
     await supabase.from(`${T}_settings`).upsert({ key: 'bracket_created', value: 'true' })
+
+    // Assign stations 1-12 to first 12 real R1 matches, queue the rest
+    try {
+      const { scoreToken } = require('./_bracket')
+      const eventName = process.env.EVENT_NAME || 'Tournament'
+      const host = req.headers['x-forwarded-host'] || req.headers.host
+      const now = new Date().toISOString()
+      const MAX_STATIONS = 12
+
+      const { data: r1 } = await supabase
+        .from(`${T}_matches`)
+        .select('id, position, team1:team1_id(id,name,phone), team2:team2_id(id,name,phone)')
+        .eq('bracket', 'W').eq('round', 1).eq('is_bye', false)
+        .order('position', { ascending: true })
+
+      for (let i = 0; i < (r1 || []).length; i++) {
+        const match = r1[i]
+        const station = i < MAX_STATIONS ? i + 1 : null
+        await supabase.from(`${T}_matches`)
+          .update({ ready_at: now, ...(station ? { station } : {}) })
+          .eq('id', match.id)
+
+        if (station) {
+          const url = `https://${host}/score.html?token=${scoreToken(match.id)}`
+          for (const team of [match.team1, match.team2].filter(t => t?.phone)) {
+            const opponent = team.id === match.team1.id ? match.team2?.name : match.team1?.name
+            const text = `Welcome to the ${eventName}! Station ${station} vs ${opponent}. Score: ${url}`
+            const result = await sendSms(normalizePhone(team.phone), text).catch(err => ({ error: err.message }))
+            console.log(`SMS to ${team.name}:`, JSON.stringify(result))
+          }
+        }
+      }
+    } catch (e) {
+      console.error('SMS bracket notify error:', e.message || e)
+    }
+
     return res.json({ success: true, matchCount: matches.length })
   }
 
@@ -177,6 +214,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'match_id, score1, score2 required' })
     try {
       await applyScore(supabase, T, match_id, score1, score2)
+      const host = req.headers['x-forwarded-host'] || req.headers.host
+      await markReadyMatches(supabase, T).catch(() => {})
+      await checkAndAssignStations(supabase, T, host).catch(() => {})
       return res.json({ success: true })
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || e.message || 'Server error.' })

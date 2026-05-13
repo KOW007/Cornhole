@@ -25,6 +25,7 @@
     .prize-preview-name { font-size: 14px; font-weight: 700; margin: 4px 0 4px; }
     .prize-preview-sub { font-size: 12px; color: #888; }
     .prize-preview-count { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 8px; }
+    .prize-preview-img { width: 100%; height: 130px; object-fit: cover; object-position: 50% 45%; border-radius: 6px; margin-bottom: 8px; }
 
     /* Ticket purchase */
     .ticket-options { display: flex; flex-direction: column; gap: 10px; }
@@ -108,6 +109,13 @@
           <div class="prize-preview-sub">Westlake Dermatology exclusive set</div>
           <div class="prize-preview-count" id="preview-count-revitalash">— tickets</div>
         </div>
+        <div class="prize-preview">
+          <img class="prize-preview-img" src="/yeti-hopper-flip-18.png" alt="Yeti Hopper Flip 18" />
+          <div class="prize-preview-value">$300</div>
+          <div class="prize-preview-name">Yeti Hopper Flip 18</div>
+          <div class="prize-preview-sub">17.7"w x 12.8"h, fits 30 cans</div>
+          <div class="prize-preview-count" id="preview-count-yeti">— tickets</div>
+        </div>
       </div>
     </div>
 
@@ -181,6 +189,7 @@
       { id: 'roka',         name: 'Pair of Roka Sunglasses' },
       { id: 'milk_cookies', name: '$100 Milk &amp; Cookies Gift Card' },
       { id: 'revitalash',   name: 'Westlake Dermatology RevitaLash Serum &amp; Mascara' },
+      { id: 'yeti',         name: 'Yeti Hopper Flip 18 Portable Soft Cooler' },
     ]
 
     let singles = 0

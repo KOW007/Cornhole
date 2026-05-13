@@ -7,7 +7,7 @@ const supabase = createClient(
 
 const T = process.env.TABLE_PREFIX || 'ct'
 
-const PRIZE_IDS = ['uchiko', 'roka', 'milk_cookies', 'revitalash']
+const PRIZE_IDS = ['uchiko', 'roka', 'milk_cookies', 'revitalash', 'yeti']
 
 function sumTotals(entries) {
   const totals = Object.fromEntries(PRIZE_IDS.map(id => [id, 0]))

@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const { verifyToken, applyScore } = require('./_bracket')
+const { markReadyMatches, checkAndAssignStations } = require('./_notify')
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
 const T = process.env.TABLE_PREFIX || 'ct'
@@ -12,6 +13,7 @@ module.exports = async function handler(req, res) {
 
   const rawToken = req.method === 'GET' ? req.query.token : req.body?.token
   const matchId = verifyToken(rawToken)
+  console.log('score token:', rawToken, '→ matchId:', matchId, 'SECRET:', process.env.SCORE_SECRET ? 'set' : 'unset')
   if (matchId == null) return res.status(403).json({ error: 'Invalid or expired link.' })
 
   if (req.method === 'GET') {
@@ -28,6 +30,9 @@ module.exports = async function handler(req, res) {
     const { score1, score2 } = req.body
     try {
       await applyScore(supabase, T, matchId, score1, score2)
+      const host = req.headers['x-forwarded-host'] || req.headers.host
+      await markReadyMatches(supabase, T).catch(() => {})
+      await checkAndAssignStations(supabase, T, host).catch(() => {})
       return res.json({ success: true })
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || 'Server error.' })

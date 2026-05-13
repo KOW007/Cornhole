@@ -37,28 +37,14 @@ module.exports = async function handler(req, res) {
   const eventName = process.env.EVENT_NAME || 'SAS Cornhole Tournament'
   const message = `${eventName} — ${bracketLabel} Round ${match.round}: ${match.team1.name} vs ${match.team2.name}. Submit your score: ${url}`
 
-  const sid = process.env.TWILIO_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_PHONE
-  const auth = Buffer.from(`${sid}:${authToken}`).toString('base64')
-  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`
-
+  const { sendSms, normalizePhone } = require('./_notify')
   const teams = [match.team1, match.team2].filter(t => t?.phone)
   const results = { sent: 0, failed: 0, sentList: [], failedList: [] }
 
   for (const team of teams) {
-    let phone = team.phone.replace(/\D/g, '')
-    if (phone.length === 10) phone = '1' + phone
-    else if (phone.length === 11 && !phone.startsWith('1')) phone = '1' + phone
-    if (!phone.startsWith('+')) phone = '+' + phone
-
     try {
-      const r = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ From: from, To: phone, Body: message })
-      })
-      if (r.ok) { results.sent++; results.sentList.push(team.name) }
+      const resp = await sendSms(normalizePhone(team.phone), message)
+      if (resp.success) { results.sent++; results.sentList.push(team.name) }
       else { results.failed++; results.failedList.push(team.name) }
     } catch {
       results.failed++; results.failedList.push(team.name)
