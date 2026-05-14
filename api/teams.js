@@ -76,11 +76,15 @@ module.exports = async function handler(req, res) {
     if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD)
       return res.status(401).json({ error: 'Unauthorized' })
     const { id } = req.query
-    const { paid1, paid2 } = req.body
     if (!id) return res.status(400).json({ error: 'Team ID required' })
+    const { paid1, paid2, name, player1, player2, phone } = req.body
     const update = {}
     if (paid1 !== undefined) update.paid1 = paid1
     if (paid2 !== undefined) update.paid2 = paid2
+    if (name !== undefined) update.name = name.trim()
+    if (player1 !== undefined) update.player1 = player1.trim()
+    if (player2 !== undefined) update.player2 = player2.trim() || null
+    if (phone !== undefined) update.phone = phone.trim()
     const { error } = await supabase.from(`${T}_teams`).update(update).eq('id', id)
     if (error) return res.status(500).json({ error: error.message })
     return res.json({ success: true })

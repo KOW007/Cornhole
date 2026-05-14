@@ -48,6 +48,16 @@
     td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
     tr:last-child td { border-bottom: none; }
 
+    /* Edit modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:200; }
+    .modal { background:white; border-radius:12px; padding:1.75rem; width:460px; max-width:calc(100vw - 2rem); box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+    .modal h3 { font-size:16px; margin-bottom:1.25rem; }
+    .modal-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem; }
+    .btn-secondary { background:#eee; color:#333; }
+    .btn-secondary:hover { background:#ddd; }
+    .btn-edit { background:#5b7fa6; color:white; font-size:11px; padding:4px 10px; }
+    .btn-edit:hover { background:#4a6a8f; }
+
     /* Danger zone */
     .danger-zone { border: 1px solid #f5c6cb; border-radius: 8px; padding: 1rem 1.25rem; background: #fff5f5; }
     .danger-zone p { font-size: 13px; color: #721c24; margin-bottom: 12px; }
@@ -74,6 +84,25 @@
       </div>
       <button class="btn btn-primary" onclick="login()">Login</button>
       <div class="msg error" id="loginMsg"></div>
+    </div>
+  </div>
+
+  <!-- Edit Team Modal -->
+  <div class="modal-overlay" id="editModal" style="display:none" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal">
+      <h3>Edit Team</h3>
+      <input type="hidden" id="editTeamId" />
+      <div class="form-row"><label>Team Name</label><input id="editName" /></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Player 1</label><input id="editPlayer1" /></div>
+        <div class="form-row"><label>Player 2</label><input id="editPlayer2" placeholder="Optional" /></div>
+      </div>
+      <div class="form-row"><label>Phone</label><input id="editPhone" /></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTeamEdit()">Save Changes</button>
+      </div>
+      <div class="msg" id="editMsg"></div>
     </div>
   </div>
 
@@ -396,9 +425,12 @@
       loadTeams()
     }
 
+    let teamsCache = {}
+
     async function loadTeams() {
       const res = await fetch('/api/teams')
       const teams = await res.json()
+      teams.forEach(t => { teamsCache[t.id] = t })
       const div = document.getElementById('teamsTable')
       if (!teams.length) { div.innerHTML = '<p style="color:#aaa;font-size:14px">No teams registered.</p>'; return }
       div.innerHTML = `<table>
@@ -413,13 +445,51 @@
             <td style="text-align:center"><input type="checkbox" ${t.paid2 ? 'checked' : ''} onchange="togglePaid('${t.id}', 'paid2', this.checked)" /></td>
             <td>${esc(t.phone)}</td>
             <td>${new Date(t.registered_at).toLocaleDateString()}</td>
-            <td style="display:flex;gap:6px">
+            <td style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-edit" onclick="openEditModal('${t.id}')">Edit</button>
               <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="textOne('${t.id}')">Text</button>
               <button class="btn btn-danger" onclick="deleteTeam('${t.id}','${esc(t.name)}')">Remove</button>
             </td>
           </tr>`).join('')}
         </tbody>
       </table>`
+    }
+
+    function openEditModal(id) {
+      const t = teamsCache[id]
+      if (!t) return
+      document.getElementById('editTeamId').value = t.id
+      document.getElementById('editName').value = t.name || ''
+      document.getElementById('editPlayer1').value = t.player1 || ''
+      document.getElementById('editPlayer2').value = t.player2 || ''
+      document.getElementById('editPhone').value = t.phone || ''
+      document.getElementById('editMsg').textContent = ''
+      document.getElementById('editModal').style.display = 'flex'
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none'
+    }
+
+    async function saveTeamEdit() {
+      const id = document.getElementById('editTeamId').value
+      const body = {
+        name: document.getElementById('editName').value.trim(),
+        player1: document.getElementById('editPlayer1').value.trim(),
+        player2: document.getElementById('editPlayer2').value.trim(),
+        phone: document.getElementById('editPhone').value.trim(),
+      }
+      const msg = document.getElementById('editMsg')
+      msg.className = 'msg'; msg.textContent = 'Saving...'
+      const res = await fetch(`/api/teams?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify(body)
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; return }
+      closeEditModal()
+      loadTeams()
     }
 
     async function deleteTeam(id, name) {
