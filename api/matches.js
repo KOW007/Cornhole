@@ -136,7 +136,7 @@ function assignTeams(matches, teams, bracketSize) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
@@ -221,6 +221,42 @@ module.exports = async function handler(req, res) {
     } catch (e) {
       return res.status(e.status || 500).json({ error: e.error || e.message || 'Server error.' })
     }
+  }
+
+  if (req.method === 'PATCH') {
+    const { match_id, team_id } = req.body
+    if (!match_id || !team_id) return res.status(400).json({ error: 'match_id and team_id required' })
+
+    const { data: match, error: me } = await supabase.from(`${T}_matches`).select('*').eq('id', match_id).single()
+    if (me || !match) return res.status(404).json({ error: 'Match not found.' })
+    if (!match.is_bye) return res.status(400).json({ error: 'That match is not a bye slot.' })
+
+    const emptySlot = !match.team1_id ? 'team1_id' : 'team2_id'
+    await supabase.from(`${T}_matches`).update({
+      [emptySlot]: team_id,
+      is_bye: false,
+      status: 'pending',
+      winner_id: null,
+      score1: null,
+      score2: null
+    }).eq('id', match_id)
+
+    // Un-advance the bye winner from the next match (if it hasn't been played yet)
+    if (match.next_match_id && match.winner_id) {
+      const { data: nextMatch } = await supabase.from(`${T}_matches`).select('*').eq('id', match.next_match_id).single()
+      if (nextMatch && nextMatch.status === 'pending') {
+        const slotField = match.next_slot === 1 ? 'team1_id' : 'team2_id'
+        if (nextMatch[slotField] === match.winner_id) {
+          await supabase.from(`${T}_matches`).update({ [slotField]: null }).eq('id', match.next_match_id)
+        }
+      }
+    }
+
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    await markReadyMatches(supabase, T).catch(() => {})
+    await checkAndAssignStations(supabase, T, host).catch(() => {})
+
+    return res.json({ success: true })
   }
 
   if (req.method === 'DELETE') {

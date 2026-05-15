@@ -106,6 +106,24 @@
     </div>
   </div>
 
+  <!-- Add Team Modal -->
+  <div class="modal-overlay" id="addTeamModal" style="display:none" onclick="if(event.target===this)closeAddTeamModal()">
+    <div class="modal">
+      <h3>Add Team</h3>
+      <div class="form-row"><label>Team Name</label><input id="addName" /></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Player 1</label><input id="addPlayer1" /></div>
+        <div class="form-row"><label>Player 2</label><input id="addPlayer2" placeholder="Optional" /></div>
+      </div>
+      <div class="form-row"><label>Phone</label><input id="addPhone" /></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddTeamModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitAddTeam()">Add Team</button>
+      </div>
+      <div class="msg" id="addTeamMsg"></div>
+    </div>
+  </div>
+
   <!-- Admin panel -->
   <div class="page" id="adminPanel" style="display:none">
     <div class="tabs">
@@ -121,9 +139,13 @@
     <!-- Teams panel -->
     <div class="panel active" id="panel-teams">
       <div class="card">
-        <h2 style="font-size:16px;margin-bottom:1rem">Registered Teams</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h2 style="font-size:16px;margin:0">Registered Teams</h2>
+          <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="openAddTeamModal()">+ Add Team</button>
+        </div>
         <div id="teamsTable">Loading...</div>
       </div>
+      <div id="assignCard" style="display:none"></div>
     </div>
 
     <!-- Notify panel -->
@@ -425,6 +447,94 @@
       loadTeams()
     }
 
+    function openAddTeamModal() {
+      ['addName','addPlayer1','addPlayer2','addPhone'].forEach(id => document.getElementById(id).value = '')
+      document.getElementById('addTeamMsg').textContent = ''
+      document.getElementById('addTeamModal').style.display = 'flex'
+    }
+
+    function closeAddTeamModal() {
+      document.getElementById('addTeamModal').style.display = 'none'
+    }
+
+    async function submitAddTeam() {
+      const player2 = document.getElementById('addPlayer2').value.trim()
+      const body = {
+        name: document.getElementById('addName').value.trim(),
+        player1: document.getElementById('addPlayer1').value.trim(),
+        player2,
+        phone: document.getElementById('addPhone').value.trim(),
+        partner_status: player2 ? 'has_partner' : 'need_partner'
+      }
+      const msg = document.getElementById('addTeamMsg')
+      msg.className = 'msg'; msg.textContent = 'Adding...'
+      const res = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify(body)
+      })
+      const data = await res.json()
+      if (!res.ok) { msg.className = 'msg error'; msg.textContent = data.error; return }
+      closeAddTeamModal()
+      loadTeams()
+    }
+
+    async function loadAssignCard(teams) {
+      const div = document.getElementById('assignCard')
+      const matchesRes = await fetch('/api/matches')
+      if (!matchesRes.ok) { div.style.display = 'none'; return }
+      const matches = await matchesRes.json()
+      if (!matches.length) { div.style.display = 'none'; return }
+
+      const assignedIds = new Set()
+      matches.forEach(m => {
+        if (m.team1_id) assignedIds.add(m.team1_id)
+        if (m.team2_id) assignedIds.add(m.team2_id)
+      })
+
+      const unassigned = teams.filter(t => !assignedIds.has(t.id))
+      const byeSlots = matches.filter(m => m.is_bye && m.bracket === 'W' && m.round === 1)
+
+      if (!unassigned.length) { div.style.display = 'none'; return }
+
+      div.style.display = 'block'
+      const byeOptions = byeSlots.map(m => {
+        const existing = m.team1?.name || m.team2?.name || '?'
+        return `<option value="${m.id}">R${m.round} #${m.position+1} — ${esc(existing)} (bye)</option>`
+      }).join('')
+      const noSlots = !byeSlots.length
+
+      div.innerHTML = `<div class="card">
+        <h2 style="font-size:16px;margin-bottom:.5rem">Assign to Draw</h2>
+        <p style="font-size:13px;color:#888;margin-bottom:1rem">
+          ${unassigned.length} team${unassigned.length !== 1 ? 's are' : ' is'} registered but not yet in the bracket.
+          ${noSlots ? '<strong style="color:#c0392b">No bye slots available — all positions are filled.</strong>' : 'Pick a bye slot to slot each team in.'}
+        </p>
+        ${!noSlots ? unassigned.map(t => `
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:10px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:600;min-width:120px">${esc(t.name)}</span>
+            <select id="byeSelect_${t.id}" style="flex:1;min-width:200px">
+              <option value="">— pick a bye slot —</option>
+              ${byeOptions}
+            </select>
+            <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="assignToBracket('${t.id}')">Assign</button>
+          </div>`).join('') : ''}
+      </div>`
+    }
+
+    async function assignToBracket(teamId) {
+      const sel = document.getElementById('byeSelect_' + teamId)
+      if (!sel || !sel.value) { alert('Please select a bye slot.'); return }
+      const res = await fetch('/api/matches', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+        body: JSON.stringify({ match_id: Number(sel.value), team_id: teamId })
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error); return }
+      loadTeams()
+    }
+
     let teamsCache = {}
 
     async function loadTeams() {
@@ -453,6 +563,7 @@
           </tr>`).join('')}
         </tbody>
       </table>`
+      loadAssignCard(teams)
     }
 
     function openEditModal(id) {

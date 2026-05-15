@@ -23,9 +23,10 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    const isAdmin = req.headers['x-admin-password'] === process.env.ADMIN_PASSWORD
     const { data: setting } = await supabase
       .from(`${T}_settings`).select('value').eq('key', 'bracket_created').single()
-    if (setting?.value === 'true')
+    if (setting?.value === 'true' && !isAdmin)
       return res.status(400).json({ error: 'Registration is closed — bracket has been created.' })
 
     const { name, player1, player2, phone, partner_status } = req.body
