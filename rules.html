@@ -40,6 +40,70 @@
 
   <div class="page">
     <div class="card">
+      <h2>Court Layout</h2>
+      <svg viewBox="0 0 700 255" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;margin-bottom:6px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif">
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+            <polygon points="0 0, 6 2, 0 4" fill="#666"/>
+          </marker>
+          <marker id="arrl" markerWidth="6" markerHeight="4" refX="0" refY="2" orient="auto-start-reverse">
+            <polygon points="0 0, 6 2, 0 4" fill="#666"/>
+          </marker>
+        </defs>
+
+        <!-- Court length arrow -->
+        <line x1="55" y1="16" x2="645" y2="16" stroke="#666" stroke-width="1" marker-start="url(#arrl)" marker-end="url(#arr)"/>
+        <rect x="210" y="6" width="280" height="13" fill="white"/>
+        <text x="350" y="16" text-anchor="middle" font-size="10" fill="#555">COURT LENGTH ~ 40-45 FEET</text>
+
+        <!-- Court width arrow -->
+        <line x1="20" y1="50" x2="20" y2="165" stroke="#666" stroke-width="1" marker-start="url(#arrl)" marker-end="url(#arr)"/>
+        <text x="13" y="108" text-anchor="middle" font-size="10" fill="#555" transform="rotate(-90,13,108)">COURT WIDTH ~ 8-10 FEET</text>
+
+        <!-- Court outline -->
+        <rect x="50" y="40" width="600" height="120" fill="none" stroke="#aaa" stroke-width="1.5"/>
+
+        <!-- Left board -->
+        <rect x="50" y="55" width="82" height="90" fill="#1e3a78"/>
+        <circle cx="91" cy="100" r="9" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+
+        <!-- Right board -->
+        <rect x="568" y="55" width="82" height="90" fill="#1e3a78"/>
+        <circle cx="609" cy="100" r="9" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+
+        <!-- Left foul line -->
+        <line x1="132" y1="40" x2="132" y2="175" stroke="#555" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="132" y="183" text-anchor="middle" font-size="9" fill="#555" font-weight="600">FOUL LINE</text>
+
+        <!-- Right foul line -->
+        <line x1="568" y1="40" x2="568" y2="175" stroke="#555" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="568" y="183" text-anchor="middle" font-size="9" fill="#555" font-weight="600">FOUL LINE</text>
+
+        <!-- Pitcher's box labels -->
+        <text x="91" y="49" text-anchor="middle" font-size="8.5" fill="white" font-weight="700">PITCHER'S BOX</text>
+        <text x="91" y="158" text-anchor="middle" font-size="8.5" fill="#444" font-weight="700">PITCHER'S BOX</text>
+        <text x="609" y="49" text-anchor="middle" font-size="8.5" fill="white" font-weight="700">PITCHER'S BOX</text>
+        <text x="609" y="158" text-anchor="middle" font-size="8.5" fill="#444" font-weight="700">PITCHER'S BOX</text>
+
+        <!-- Junior foul line reference dot (center-right area) -->
+        <circle cx="350" cy="100" r="7" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="2,2"/>
+
+        <!-- Junior foul line arrow -->
+        <line x1="350" y1="207" x2="568" y2="207" stroke="#666" stroke-width="1" marker-start="url(#arrl)" marker-end="url(#arr)"/>
+        <rect x="370" y="198" width="170" height="12" fill="white"/>
+        <text x="459" y="208" text-anchor="middle" font-size="9.5" fill="#555">JUNIOR FOUL LINE ~ 12-15 FT</text>
+
+        <!-- Adult foul line arrow -->
+        <line x1="132" y1="228" x2="568" y2="228" stroke="#666" stroke-width="1" marker-start="url(#arrl)" marker-end="url(#arr)"/>
+        <rect x="230" y="219" width="180" height="12" fill="white"/>
+        <text x="350" y="229" text-anchor="middle" font-size="9.5" fill="#555">ADULT FOUL LINE ~ 27 FEET</text>
+
+        <!-- Caption -->
+        <text x="350" y="250" text-anchor="middle" font-size="10" fill="#bbb">Cornhole court layout</text>
+      </svg>
+    </div>
+
+    <div class="card">
       <h2>Corn Hole Rules</h2>
       <ul class="rules-list">
         <li><span>Boards should be approximately 27 ft. apart</span></li>
